@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "WebFetch(domain:docs.apitcg.com)",
+      "WebFetch(domain:www.tcgmatch.cl)",
+      "WebFetch(domain:www.tcgplayer.com)",
+      "Bash(npm install *)",
+      "Bash(node server.js)",
+      "Bash(curl -s \"http://localhost:3000/api/cards?name=charizard\")",
+      "Bash(curl -s \"http://localhost:3000/api/prices?name=charizard\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:3000/api/cards?name=pikachu\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Total cartas: {d[\\\\\"total\\\\\"]}'\\); [print\\(f'  - {c[\\\\\"name\\\\\"]} \\({c[\\\\\"set\\\\\"]}\\) img={bool\\(c[\\\\\"images\\\\\"][\\\\\"small\\\\\"]\\)}'\\) for c in d['cards'][:3]]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"http://localhost:3000/api/dolar\")",
+      "Bash(curl -s \"http://localhost:3000/api/prices?name=Charizard&number=25&set=Vivid+Voltage\")",
+      "Bash(curl -s \"http://localhost:3000/api/prices?name=Blaziken+V&number=TG14&set=Silver+Tempest+Trainer+Gallery\")",
+      "Bash(curl -s \"http://localhost:3000/api/prices?name=Dragapult+ex&number=165&set=Prismatic+Evolutions\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e ' *)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)"
+    ]
+  }
+}
