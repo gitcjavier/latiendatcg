@@ -1,10 +1,10 @@
 [build]
   command = "pnpm build"
-  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "10.11.0"
 
-# El adapter @astrojs/netlify genera automáticamente las funciones
-# en .netlify/ — no hace falta config extra de redirects.
+# El adapter @astrojs/netlify v6 usa la Frameworks API:
+# escribe assets en dist/ y la función SSR en .netlify/v1/functions/ssr/.
+# NO definir `publish` — Netlify autodetecta ambos desde .netlify/v1/config.json.
