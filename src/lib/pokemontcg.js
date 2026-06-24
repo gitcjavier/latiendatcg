@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from "axios";
 
 const API_BASE = 'https://api.pokemontcg.io/v2';
 
@@ -11,8 +11,8 @@ let setsCache = { data: null, ts: 0 };
 const cardsCache = new Map(); // key `${setId}:${page}` -> { data, ts }
 
 function authHeaders() {
-  const key = process.env.POKEMONTCG_KEY;
-  return key ? { 'X-Api-Key': key } : {};
+  const key = process.env.POKEMONTCG_KEY ?? import.meta.env?.POKEMONTCG_KEY;
+  return key ? { "X-Api-Key": key } : {};
 }
 
 // GET con un reintento — la API pública responde lento de vez en cuando
@@ -28,7 +28,7 @@ async function getWithRetry(url, params) {
  * Lista los sets del formato estándar, ordenados del más nuevo al más antiguo.
  * Devuelve: [{ id, name, series, releaseDate, total, logo, symbol }]
  */
-async function getStandardSets() {
+export async function getStandardSets() {
   if (setsCache.data && Date.now() - setsCache.ts < SETS_TTL) {
     return setsCache.data;
   }
@@ -45,8 +45,8 @@ async function getStandardSets() {
 }
 
 /**
- * Obtiene las cartas de un set, paginado. Normaliza al MISMO shape que
- * normalizeCard de apitcg.js para que el grid y /api/prices funcionen igual.
+ * Obtiene las cartas de un set, paginado. Devuelve cartas normalizadas
+ * con el mismo shape consistente que searchCardsByName.
  *
  * pokemontcg.io ordena `number` como texto ("1,10,100,11,2..."), así que
  * traemos TODAS las cartas del set una vez, las ordenamos numéricamente por
@@ -55,7 +55,7 @@ async function getStandardSets() {
  *
  * Devuelve: { cards, page, totalCount, hasMore }
  */
-async function getCardsBySet(setId, page = 1) {
+export async function getCardsBySet(setId, page = 1) {
   const pageSize = 60;
 
   let all = null;
@@ -129,7 +129,8 @@ function normalizeSet(s) {
   };
 }
 
-// Mismo shape que normalizeCard de apitcg.js — crítico para reutilizar el render
+// Shape consistente para todos los endpoints que devuelven cartas.
+// Preservamos los precios de TCGPlayer que vienen directos en la API.
 function normalizeCard(c) {
   return {
     id: c.id || '',
@@ -147,7 +148,58 @@ function normalizeCard(c) {
       small: c.images?.small || '',
       large: c.images?.large || '',
     },
+    tcgpMarket: extractTcgpMarket(c.tcgplayer?.prices),
+    tcgpUrl: c.tcgplayer?.url || '',
   };
 }
 
-module.exports = { getStandardSets, getCardsBySet };
+/**
+ * Extrae el "market price" más representativo de la respuesta de pokemontcg.io.
+ * Prioriza variantes comunes (holofoil > normal > reverseHolofoil > 1stEdition…).
+ */
+function extractTcgpMarket(prices) {
+  if (!prices) return null;
+  const order = [
+    'holofoil',
+    'normal',
+    'reverseHolofoil',
+    'unlimitedHolofoil',
+    '1stEditionHolofoil',
+    '1stEditionNormal',
+  ];
+  for (const k of order) {
+    const v = prices[k]?.market;
+    if (typeof v === 'number' && v > 0) return v;
+  }
+  // Fallback: el primero que encontremos
+  for (const v of Object.values(prices)) {
+    if (typeof v?.market === 'number' && v.market > 0) return v.market;
+  }
+  return null;
+}
+
+/**
+ * Búsqueda de cartas por nombre directo en pokemontcg.io.
+ * Reemplaza el wrapper apitcg.com porque pokemontcg.io devuelve los precios
+ * de TCGPlayer en el mismo response (sin scraping).
+ */
+export async function searchCardsByName(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return { total: 0, cards: [] };
+
+  // q=name:"x" → match exacto del nombre (con comillas), orderBy releaseDate desc
+  // pageSize 50 — suficiente para una primera página
+  const res = await getWithRetry(`${API_BASE}/cards`, {
+    q: `name:"${trimmed}"`,
+    orderBy: '-set.releaseDate',
+    pageSize: 50,
+  });
+
+  const raw = res.data || {};
+  const cards = (raw.data || []).map(normalizeCard);
+  return {
+    total: raw.totalCount ?? cards.length,
+    cards,
+  };
+}
+

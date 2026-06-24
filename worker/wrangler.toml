@@ -1,0 +1,16 @@
+name = "pkm-prices-worker"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Browser Rendering binding — requiere plan Workers Paid ($5/mes) o uso dentro
+# del free tier de Browser Rendering (10 min/día, 3 concurrent).
+browser = { binding = "BROWSER" }
+
+# CORS allowed origins se leen como secret/var. Usa wrangler secret para producción.
+[vars]
+ALLOWED_ORIGIN = "*"
+
+# Observabilidad
+[observability]
+enabled = true

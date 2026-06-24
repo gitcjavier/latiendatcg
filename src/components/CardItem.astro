@@ -1,0 +1,83 @@
+---
+interface Card {
+  id?: string;
+  name: string;
+  set?: string;
+  setId?: string;
+  number?: string;
+  rarity?: string;
+  images?: { small?: string; large?: string };
+  tcgpMarket?: number | null;
+}
+interface Props {
+  card: Card;
+}
+const { card } = Astro.props;
+const imgSrc = card.images?.small || card.images?.large || "";
+const rarityShort = (card.rarity || "")
+  .replace(/Special Illustration Rare/i, "Special Illust.")
+  .replace(/Double Rare/i, "Double Rare")
+  .replace(/Hyper Rare/i, "Hyper Rare");
+
+const fmtUSD = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+const tcgpDisplay = typeof card.tcgpMarket === "number" && card.tcgpMarket > 0
+  ? fmtUSD(card.tcgpMarket)
+  : "—";
+---
+
+<article
+  class="group relative bg-paper border border-ink-200 rounded-lg overflow-hidden hover:border-ink-300 hover:shadow-[0_8px_24px_rgba(11,11,11,0.06)] transition cursor-pointer"
+  data-card-id={card.id}
+  data-card-name={card.name}
+  data-card-number={card.number}
+  data-card-set={card.set}
+>
+  <!-- Imagen -->
+  <div class="aspect-[367/512] bg-ink-100 relative">
+    {rarityShort && (
+      <span class="absolute top-3 left-3 text-[10px] font-bold tracking-[0.08em] uppercase bg-paper border border-ink-200 rounded px-2 py-1">
+        {rarityShort}
+      </span>
+    )}
+    {imgSrc ? (
+      <img
+        src={imgSrc}
+        alt={card.name}
+        loading="lazy"
+        class="absolute inset-0 w-full h-full object-contain"
+      />
+    ) : (
+      <div class="absolute inset-0 grid place-items-center text-ink-300 text-xs">—</div>
+    )}
+  </div>
+
+  <!-- Info -->
+  <div class="p-4 border-t border-ink-200">
+    <h3 class="font-display font-bold text-[17px] leading-tight tracking-tight truncate">{card.name}</h3>
+    <p class="text-[11px] text-ink-400 mt-1 truncate">
+      {card.set}
+      {card.number && <span> · {card.number}</span>}
+    </p>
+  </div>
+
+  <!-- Precios (TCGM + TCGP) -->
+  <div class="grid grid-cols-2 border-t border-ink-200">
+    <div class="px-4 py-3 border-r border-ink-200">
+      <p class="text-[10px] tracking-[0.12em] font-bold text-ink-400">TCGM</p>
+      <p class="font-display text-base font-bold tabular mt-0.5" data-price="tcgm">—</p>
+    </div>
+    <div class="px-4 py-3">
+      <p class="text-[10px] tracking-[0.12em] font-bold text-ink-400">TCGP</p>
+      <p
+        class:list={[
+          "font-display text-base font-bold tabular mt-0.5",
+          tcgpDisplay === "—" ? "text-ink-300" : "text-ink-900",
+        ]}
+        data-price="tcgp"
+      >
+        {tcgpDisplay}
+      </p>
+    </div>
+  </div>
+</article>

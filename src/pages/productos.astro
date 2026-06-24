@@ -1,0 +1,254 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Tabs from "../components/Tabs.astro";
+import PageTitle from "../components/PageTitle.astro";
+import PreventaRow from "../components/PreventaRow.astro";
+import { searchPreventas, PRODUCT_TYPES } from "../lib/preventas.js";
+
+export const prerender = false;
+
+const sp = Astro.url.searchParams;
+const term = (sp.get("q") ?? "").trim();
+const edition = (sp.get("edition") ?? "").trim();
+const typesParam = (sp.get("types") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+const onlyInStock = sp.get("stock") === "1";
+const sort: "asc" | "desc" = sp.get("sort") === "desc" ? "desc" : "asc";
+
+const hasFilters = !!(term || edition || typesParam.length || onlyInStock);
+
+let data: any = { products: [], stores: [], total: 0, term, edition, types: typesParam };
+let err: string | null = null;
+if (hasFilters) {
+  try {
+    data = await searchPreventas({ term, edition, types: typesParam, onlyInStock, sort });
+  } catch (e: any) {
+    err = e?.message ?? "Error al buscar productos";
+  }
+}
+
+const stores = data.stores ?? [];
+const products = data.products ?? [];
+const activeTypes = new Set(typesParam);
+
+// Para la pestaña: contador 00 si no hay filtros
+const tabCount = hasFilters ? products.length : "00";
+
+// Mensaje de cabecera dinámico
+const titleAccent = edition || (term ? term : "productos");
+const titleMain = edition ? "Productos de" : (term ? "Buscando" : "Buscar");
+
+// Construye un href de /productos preservando los params actuales con overrides.
+function buildHref(overrides: Record<string, string | null> = {}) {
+  const base: Record<string, string> = {};
+  if (term) base.q = term;
+  if (edition) base.edition = edition;
+  if (typesParam.length) base.types = typesParam.join(",");
+  if (onlyInStock) base.stock = "1";
+  if (sort === "desc") base.sort = "desc";
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === null || v === "") delete base[k];
+    else base[k] = v;
+  }
+  const qs = new URLSearchParams(base).toString();
+  return qs ? `/productos?${qs}` : "/productos";
+}
+
+function hrefToggleType(id: string) {
+  const next = new Set(activeTypes);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  return buildHref({ types: next.size ? Array.from(next).join(",") : null });
+}
+
+const hrefClearEdition = () => buildHref({ edition: null });
+const hrefToggleStock = () => buildHref({ stock: onlyInStock ? null : "1" });
+const hrefSortAsc = () => buildHref({ sort: null });
+const hrefSortDesc = () => buildHref({ sort: "desc" });
+---
+
+<Layout title={hasFilters ? `Productos${edition ? ` · ${edition}` : ''} — PKM Prices` : "Productos — PKM Prices"}>
+  <Header />
+  <Tabs active="productos" counts={{ productos: tabCount }} />
+
+  <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+    <PageTitle
+      eyebrow="Sellados en Chile"
+      title={titleMain}
+      accent={titleAccent}
+      meta={hasFilters
+        ? `${products.length} producto${products.length !== 1 ? "s" : ""} · ${stores.length} tienda${stores.length !== 1 ? "s" : ""}`
+        : "Busca ETBs, Booster Boxes, Booster Bundles, sobres…"}
+    />
+
+    {/* Edición activa (pill removible) */}
+    {edition && (
+      <div class="mb-4">
+        <span class="inline-flex items-center gap-2 text-xs font-bold tracking-[0.12em] uppercase text-brand bg-brand/8 border border-brand/30 rounded-full pl-3 pr-1 py-1">
+          Edición: {edition}
+          <a href={hrefClearEdition()} aria-label="Quitar filtro de edición"
+             class="w-5 h-5 grid place-items-center rounded-full bg-brand/15 hover:bg-brand/25 transition">
+            <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 2l8 8M10 2l-8 8"></path>
+            </svg>
+          </a>
+        </span>
+      </div>
+    )}
+
+    {/* Buscador */}
+    <form action="/productos" method="get" class="mb-4">
+      {edition && <input type="hidden" name="edition" value={edition} />}
+      {typesParam.length > 0 && <input type="hidden" name="types" value={typesParam.join(",")} />}
+      {onlyInStock && <input type="hidden" name="stock" value="1" />}
+      {sort === "desc" && <input type="hidden" name="sort" value="desc" />}
+      <div class="flex items-center bg-paper border border-ink-200 rounded-lg pl-4 pr-1 focus-within:border-brand/40 focus-within:ring-4 focus-within:ring-brand/8 transition">
+        <svg class="w-4 h-4 text-ink-400 mr-2" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="9" cy="9" r="6"></circle>
+          <path d="M15 15l-3.5-3.5"></path>
+        </svg>
+        <input
+          type="text"
+          name="q"
+          value={term}
+          placeholder={edition ? `Refinar en ${edition}…` : "Buscar producto (ej. Pitch Black, ETB, Booster Box…)"}
+          class="flex-1 bg-transparent border-none outline-none text-sm font-medium py-3 placeholder:text-ink-400"
+          autocomplete="off"
+        />
+        <button type="submit" class="bg-ink-900 text-paper text-xs font-bold tracking-wide px-4 py-2 rounded-md hover:opacity-85 active:scale-95 transition">
+          BUSCAR
+        </button>
+      </div>
+    </form>
+
+    {/* Filtros por tipo de producto */}
+    <div class="flex flex-wrap items-center gap-2 mb-6">
+      <span class="text-[10px] font-bold tracking-[0.14em] uppercase text-ink-400 mr-1">Tipo</span>
+      {PRODUCT_TYPES.map((pt) => {
+        const isActive = activeTypes.has(pt.id);
+        return (
+          <a href={hrefToggleType(pt.id)}
+             class={[
+               "inline-flex items-center text-xs font-semibold rounded-full border px-3 py-1 transition",
+               isActive
+                 ? "text-paper bg-ink-900 border-ink-900"
+                 : "text-ink-700 bg-paper border-ink-200 hover:border-ink-300",
+             ].join(" ")}>
+            {pt.label}
+          </a>
+        );
+      })}
+      {activeTypes.size > 0 && (
+        <a href={buildHref({ types: null })}
+           class="text-[11px] font-semibold text-ink-400 hover:text-ink-700 underline underline-offset-2 ml-1">
+          Limpiar tipos
+        </a>
+      )}
+    </div>
+
+    {/* Toggle stock + orden por precio */}
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <a href={hrefToggleStock()}
+         class={[
+           "inline-flex items-center gap-2 text-xs font-bold tracking-[0.06em] uppercase rounded-full border px-3 py-1.5 transition",
+           onlyInStock
+             ? "text-paper bg-success border-success"
+             : "text-ink-700 bg-paper border-ink-200 hover:border-ink-300",
+         ].join(" ")}>
+        <span class={[
+          "w-3.5 h-3.5 grid place-items-center rounded-sm border",
+          onlyInStock ? "bg-paper border-paper" : "border-ink-300",
+        ].join(" ")}>
+          {onlyInStock && (
+            <svg class="w-2.5 h-2.5 text-success" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M2 6.5l2.5 2.5L10 3.5"></path>
+            </svg>
+          )}
+        </span>
+        Solo con stock
+      </a>
+
+      <div class="inline-flex items-center gap-1 ml-auto">
+        <span class="text-[10px] font-bold tracking-[0.14em] uppercase text-ink-400 mr-1">Precio</span>
+        <a href={hrefSortAsc()}
+           class={[
+             "inline-flex items-center gap-1 text-xs font-bold rounded-md border px-2.5 py-1.5 transition",
+             sort === "asc"
+               ? "text-paper bg-ink-900 border-ink-900"
+               : "text-ink-700 bg-paper border-ink-200 hover:border-ink-300",
+           ].join(" ")}
+           aria-label="Ordenar de menor a mayor">
+          <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l3-6 3 6"></path>
+          </svg>
+          Menor
+        </a>
+        <a href={hrefSortDesc()}
+           class={[
+             "inline-flex items-center gap-1 text-xs font-bold rounded-md border px-2.5 py-1.5 transition",
+             sort === "desc"
+               ? "text-paper bg-ink-900 border-ink-900"
+               : "text-ink-700 bg-paper border-ink-200 hover:border-ink-300",
+           ].join(" ")}
+           aria-label="Ordenar de mayor a menor">
+          <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3l3 6 3-6"></path>
+          </svg>
+          Mayor
+        </a>
+      </div>
+    </div>
+
+    {/* Chips de tienda (solo las que aportaron resultados o erroraron) */}
+    {hasFilters && stores.length > 0 && (
+      <div class="flex flex-wrap gap-2 mb-8">
+        <span class="text-[10px] font-bold tracking-[0.14em] uppercase text-ink-400 mr-1 self-center">Tiendas</span>
+        {stores.map((s: any) => {
+          const n = s.products?.length ?? 0;
+          const hasResults = n > 0;
+          const hasError = !!s.error;
+          return (
+            <span class={[
+              "inline-flex items-center gap-2 text-xs font-semibold border rounded-full pl-3 pr-1.5 py-1",
+              hasError ? "text-ink-400 border-ink-200"
+              : hasResults ? "text-ink-900 border-success/35"
+              : "text-ink-400 border-ink-200",
+            ].join(" ")}>
+              <span class={[
+                "w-2 h-2 rounded-full",
+                hasError ? "bg-danger" : hasResults ? "bg-success" : "bg-warn",
+              ].join(" ")}></span>
+              {s.store}
+              <span class={[
+                "text-[11px] tabular font-bold rounded-full px-2 py-0.5",
+                hasError ? "text-danger bg-danger/8" : "text-paper bg-success",
+              ].join(" ")}>{hasError ? "—" : n}</span>
+            </span>
+          );
+        })}
+      </div>
+    )}
+
+    {/* Estados */}
+    {!hasFilters && (
+      <div class="text-center py-16">
+        <p class="text-ink-500 text-sm">Elige una edición desde la pestaña <a href="/ediciones" class="text-brand font-semibold underline underline-offset-2">Ediciones</a>, o busca un producto por nombre.</p>
+      </div>
+    )}
+
+    {hasFilters && err && (
+      <div class="text-center py-16 text-ink-400">{err}</div>
+    )}
+
+    {hasFilters && !err && products.length === 0 && (
+      <div class="text-center py-16 text-ink-400">
+        Sin productos para estos filtros en las tiendas consultadas.
+      </div>
+    )}
+
+    {hasFilters && !err && products.length > 0 && (
+      <div class="border-t border-ink-200">
+        {products.map((p: any) => <PreventaRow product={p} />)}
+      </div>
+    )}
+  </main>
+</Layout>

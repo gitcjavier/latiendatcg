@@ -1,0 +1,72 @@
+---
+interface Props {
+  id: string;
+  name: string;
+  series?: string;
+  releaseDate?: string;
+  total?: number;
+  logo?: string;
+  href: string;
+  upcoming?: boolean;
+}
+const { id, name, series, releaseDate, total, logo, href, upcoming = false } = Astro.props;
+
+function formatDate(d?: string) {
+  if (!d) return "";
+  const parts = d.split("/");
+  if (parts.length !== 3) return d;
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${parts[2]} ${months[parseInt(parts[1], 10) - 1] || ""} ${parts[0]}`;
+}
+---
+
+<a
+  href={href}
+  class={[
+    "group block rounded-lg overflow-hidden transition border",
+    upcoming
+      ? "bg-ink-900 border-ink-900 hover:border-brand"
+      : "bg-paper border-ink-200 hover:border-ink-300 hover:shadow-[0_8px_24px_rgba(11,11,11,0.06)]",
+  ].join(" ")}
+  data-set-id={id}
+>
+  <div class={[
+    "aspect-[16/8] grid place-items-center px-6 py-5 relative",
+    upcoming ? "bg-ink-900" : "bg-gradient-to-br from-ink-100 to-ink-200",
+  ].join(" ")}>
+    {upcoming && (
+      <span class="absolute top-3 left-3 text-[10px] font-bold tracking-[0.12em] uppercase bg-brand text-paper rounded-md px-2 py-1">
+        Preventa
+      </span>
+    )}
+    {logo && (
+      <img
+        src={logo}
+        alt={name}
+        loading="lazy"
+        class="max-w-full max-h-full object-contain"
+      />
+    )}
+  </div>
+
+  <div class={[
+    "px-4 py-3 flex items-baseline gap-2",
+    upcoming ? "bg-ink-900 border-t border-ink-700" : "border-t border-ink-200",
+  ].join(" ")}>
+    <div class="flex-1 min-w-0">
+      <h3 class={[
+        "font-display font-bold text-[17px] tracking-tight truncate",
+        upcoming ? "text-paper" : "text-ink-900",
+      ].join(" ")}>{name}</h3>
+      <p class={["text-[11px] mt-0.5 truncate", upcoming ? "text-ink-300" : "text-ink-400"].join(" ")}>
+        {series || ""}
+        {!upcoming && total ? ` · ${total} cartas` : ""}
+        {upcoming ? " · Ver productos →" : ""}
+      </p>
+    </div>
+    <p class={[
+      "text-xs font-mono shrink-0 tabular",
+      upcoming ? "text-brand" : "text-ink-400",
+    ].join(" ")}>{formatDate(releaseDate)}</p>
+  </div>
+</a>

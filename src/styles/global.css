@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@source "../**/*.{astro,html,js,ts,tsx,jsx}";
+
+/* ── Design tokens del redesign ─────────────────────────── */
+@theme {
+  --color-ink-900: #0b0b0b;
+  --color-ink-700: #2a2a2a;
+  --color-ink-500: #6b6b6b;
+  --color-ink-400: #9a958a;
+  --color-ink-300: #c9c5bd;
+  --color-ink-200: #e5e2db;
+  --color-ink-100: #f4f2ec;
+  --color-paper:   #ffffff;
+  --color-brand:   #1d4ed8;
+  --color-brand-2: #2563eb;
+  --color-success: #16a34a;
+  --color-warn:    #d97706;
+  --color-danger:  #b91c1c;
+
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-sans:    "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-paper);
+  color: var(--color-ink-900);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Numerales tabulares para precios */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

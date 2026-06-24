@@ -1,0 +1,89 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Tabs from "../components/Tabs.astro";
+import PageTitle from "../components/PageTitle.astro";
+import SetCard from "../components/SetCard.astro";
+import { getStandardSets } from "../lib/pokemontcg.js";
+import upcomingData from "../data/upcoming.json";
+
+export const prerender = false;
+
+const upcoming = upcomingData.upcoming ?? [];
+let sets: any[] = [];
+let err: string | null = null;
+try {
+  sets = await getStandardSets();
+} catch (e: any) {
+  err = e?.message ?? "Error al cargar ediciones";
+}
+---
+
+<Layout title="Ediciones — PKM Prices">
+  <Header />
+  <Tabs active="sets" counts={{ sets: sets.length }} />
+
+  <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+    {/* Próximas ediciones */}
+    {upcoming.length > 0 && (
+      <section class="mb-16">
+        <PageTitle
+          eyebrow="Próximamente"
+          eyebrowColor="brand"
+          title="Ediciones"
+          accent="anunciadas"
+          meta={`${upcoming.length} anunciada${upcoming.length !== 1 ? "s" : ""}`}
+        />
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {upcoming.map((s: any) => (
+            <SetCard
+              id={s.id}
+              name={s.name}
+              series={s.series}
+              releaseDate={s.releaseDate}
+              logo={s.logo}
+              href={`/productos?edition=${encodeURIComponent(s.name)}`}
+              upcoming={true}
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {/* Sets estándar */}
+    <section>
+      <PageTitle
+        eyebrow="Catálogo"
+        title="Ediciones del"
+        accent="formato estándar"
+        meta={`${sets.length} ediciones`}
+      />
+
+      {err && (
+        <div class="text-center py-16 text-ink-400">
+          {err}
+        </div>
+      )}
+
+      {!err && sets.length === 0 && (
+        <div class="text-center py-16 text-ink-400">Cargando…</div>
+      )}
+
+      {sets.length > 0 && (
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {sets.map((s) => (
+            <SetCard
+              id={s.id}
+              name={s.name}
+              series={s.series}
+              releaseDate={s.releaseDate}
+              total={s.total}
+              logo={s.logo}
+              href={`/ediciones/${s.id}`}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  </main>
+</Layout>

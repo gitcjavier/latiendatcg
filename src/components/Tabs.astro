@@ -1,0 +1,40 @@
+---
+interface Props {
+  active: "search" | "sets" | "productos";
+  counts?: { search?: number | string; sets?: number | string; productos?: number | string };
+}
+const { active, counts = {} } = Astro.props;
+
+const tabs = [
+  { id: "search", label: "BUSCAR", href: "/", count: counts.search },
+  { id: "sets", label: "EDICIONES", href: "/ediciones", count: counts.sets },
+  { id: "productos", label: "PRODUCTOS", href: "/productos", count: counts.productos },
+] as const;
+---
+
+<nav class="border-b border-ink-200 bg-paper">
+  <div class="max-w-7xl mx-auto px-6 flex gap-8">
+    {tabs.map((t) => {
+      const isActive = active === t.id;
+      return (
+        <a
+          href={t.href}
+          class={[
+            "relative py-4 text-xs font-bold tracking-[0.14em] transition",
+            isActive ? "text-ink-900" : "text-ink-400 hover:text-ink-700",
+          ].join(" ")}
+        >
+          <span class="inline-flex items-baseline gap-2">
+            <span>{t.label}</span>
+            {t.count !== undefined && (
+              <span class={["text-[11px] font-mono font-medium tabular", isActive ? "text-ink-400" : "text-ink-300"].join(" ")}>
+                {typeof t.count === "number" ? String(t.count).padStart(2, "0") : t.count}
+              </span>
+            )}
+          </span>
+          {isActive && <span class="absolute left-0 right-0 -bottom-px h-[2px] bg-brand"></span>}
+        </a>
+      );
+    })}
+  </div>
+</nav>

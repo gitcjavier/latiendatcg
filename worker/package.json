@@ -1,0 +1,18 @@
+{
+  "name": "pkm-prices-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker para scraping de TCGMatch y TCGPlayer usando Browser Rendering.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.4"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

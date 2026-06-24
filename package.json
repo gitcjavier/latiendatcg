@@ -1,22 +1,29 @@
 {
-  "name": "comp-pkm-prices",
-  "version": "1.0.0",
-  "description": "Comparador de precios de cartas Pokemon - TCGMatch.cl vs TCGPlayer.com",
-  "main": "server.js",
+  "name": "pkm-prices",
+  "version": "2.0.0",
+  "description": "Comparador de precios de cartas Pokemon TCG (Astro + Tailwind + Netlify)",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/netlify": "^6.5.6",
+    "@tailwindcss/vite": "^4.1.10",
+    "astro": "^5.10.0",
     "axios": "^1.7.0",
-    "cheerio": "^1.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.0",
-    "express": "^4.19.0",
-    "express-rate-limit": "^7.3.0",
-    "puppeteer": "^24.42.0"
+    "tailwindcss": "^4.1.10"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "@types/node": "^22.10.0",
+    "puppeteer": "^25.2.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

@@ -1,0 +1,30 @@
+---
+interface Props {
+  eyebrow?: string;
+  title: string;
+  accent?: string;
+  meta?: string;
+  rightSlot?: boolean;
+  eyebrowColor?: "brand" | "ink";
+}
+const { eyebrow, title, accent, meta, eyebrowColor = "ink" } = Astro.props;
+---
+
+<div class="flex items-end justify-between gap-6 mb-8 pb-6 border-b border-ink-200">
+  <div>
+    {eyebrow && (
+      <p class={[
+        "text-xs font-semibold tracking-[0.18em] uppercase mb-3",
+        eyebrowColor === "brand" ? "text-brand" : "text-ink-400",
+      ].join(" ")}>{eyebrow}</p>
+    )}
+    <h1 class="font-display text-[42px] md:text-[56px] font-bold leading-[1.02] tracking-tight">
+      {title}
+      {accent && <span class="text-brand"> {accent}</span>}
+    </h1>
+  </div>
+  {meta && (
+    <p class="text-sm text-ink-500 font-medium pb-3 shrink-0">{meta}</p>
+  )}
+  <slot name="right" />
+</div>

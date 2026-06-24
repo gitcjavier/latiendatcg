@@ -1,0 +1,542 @@
+---
+// Modal de detalle de carta. Se incluye una sola vez por página.
+// Las páginas exponen los datos de las cartas vía <script type="application/json" id="cards-data">
+// y este componente se encarga de:
+//  - Abrir el modal cuando el usuario hace click en cualquier [data-card-id]
+//  - Cargar /api/prices para la carta seleccionada
+//  - Renderizar el detalle con precios de TCGMatch + TCGPlayer
+---
+
+<div
+  id="card-modal"
+  class="fixed inset-0 z-[100] hidden"
+  aria-modal="true"
+  role="dialog"
+  aria-labelledby="modal-name"
+>
+  <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" data-close></div>
+
+  <div class="absolute inset-0 grid place-items-center p-4">
+    <div
+      class="relative bg-paper border border-brand/12 rounded-2xl shadow-[0_24px_64px_-12px_rgba(29,78,216,0.18),0_8px_24px_-8px_rgba(0,0,0,0.12)] w-full max-w-5xl max-h-[92vh] overflow-y-auto"
+    >
+      <button
+        type="button"
+        data-close
+        aria-label="Cerrar"
+        class="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-paper border border-ink-200 hover:bg-brand/5 hover:border-brand/25 transition grid place-items-center text-ink-500 hover:text-ink-900"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 2l12 12M14 2L2 14"></path>
+        </svg>
+      </button>
+
+      {/* En mobile: header compacto con imagen+meta horizontal en la parte de arriba.
+          En desktop (md+): vuelve a 2 columnas (imagen+meta | precios). */}
+      <div class="p-4 md:p-10 md:grid md:grid-cols-[240px_1fr] md:gap-8">
+
+        {/* ── Header mobile compacto: imagen pequeña izq + texto den ──
+             En desktop esto se desarma: la imagen va arriba de la metadata en la columna izq */}
+        <div class="flex md:block gap-4 md:gap-0 mb-4 md:mb-0">
+          {/* Imagen */}
+          <div class="shrink-0 w-[120px] md:w-full rounded-xl border border-ink-200 bg-ink-100 aspect-[367/512] overflow-hidden grid place-items-center">
+            <img id="modal-img" src="" alt="" class="w-full h-full object-contain" />
+          </div>
+
+          {/* Título + breadcrumb + meta compacta (visible solo en mobile) */}
+          <div class="flex-1 min-w-0 md:hidden">
+            <p class="text-[9px] font-bold tracking-[0.18em] uppercase text-ink-400 mb-1">
+              Detalle de carta
+            </p>
+            <h2 id="modal-name-mobile" class="font-display text-2xl font-bold tracking-tight leading-[1.05]">—</h2>
+            <p id="modal-breadcrumb-mobile" class="text-ink-500 mt-1.5 text-[11px] leading-snug"></p>
+            <dl id="modal-meta-mobile" class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]"></dl>
+          </div>
+
+          {/* Metadata en columna izq (visible solo en desktop) */}
+          <dl id="modal-meta" class="hidden md:block mt-6 space-y-3 text-sm"></dl>
+        </div>
+
+        {/* Columna derecha: precios. Mobile: el título/breadcrumb ya está arriba. */}
+        <div>
+          {/* Solo desktop: eyebrow + título + breadcrumb */}
+          <div class="hidden md:block">
+            <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-ink-400 mb-3">
+              Detalle de carta
+            </p>
+            <h2 id="modal-name" class="font-display text-4xl md:text-5xl font-bold tracking-tight leading-[1.05]">
+              —
+            </h2>
+            <p id="modal-breadcrumb" class="text-ink-500 mt-3 text-sm"></p>
+          </div>
+
+          {/* Banner: mejor precio (compacto en mobile) */}
+          <div
+            id="modal-best-price"
+            class="md:mt-7 rounded-xl md:rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/5 to-brand/10 p-4 md:p-6"
+          >
+            <div class="flex items-center gap-2 mb-1.5 md:mb-2">
+              <span class="w-2 h-2 rounded-full bg-success"></span>
+              <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-brand">Mejor precio</p>
+            </div>
+            <div class="flex items-end justify-between gap-4 flex-wrap">
+              <p id="modal-best-amount" class="font-display text-3xl md:text-5xl font-bold tabular text-ink-900 leading-none">
+                <span class="text-ink-300">—</span>
+              </p>
+              <div class="text-right">
+                <p id="modal-best-source" class="text-[11px] md:text-xs font-semibold text-ink-500"></p>
+                <p id="modal-best-stats" class="text-[11px] font-mono tabular text-ink-400 mt-0.5 md:mt-1"></p>
+              </div>
+            </div>
+          </div>
+
+          {/* Dos cards: TCGMatch + TCGPlayer — siempre 2 columnas */}
+          <div class="grid grid-cols-2 gap-2 md:gap-3 mt-2 md:mt-3">
+            <a
+              id="modal-card-tcgm"
+              href="#"
+              target="_blank"
+              rel="noopener"
+              class="block min-w-0 rounded-xl border border-ink-200 hover:border-brand/30 hover:bg-brand/3 transition p-3 md:p-5"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <span class="flex items-center gap-2 text-sm font-bold text-ink-900">
+                  <span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+                  TCGMatch.cl
+                </span>
+                <span class="text-[10px] font-bold tracking-wider text-ink-400">CLP</span>
+              </div>
+
+              {/* Bloque de idiomas (EN + ES) — se llena por JS */}
+              <div data-langs class="space-y-2"></div>
+
+              {/* Fallback cuando no hay desglose por idioma */}
+              <div data-fallback class="hidden">
+                <p data-field="price" class="font-display text-2xl font-bold tabular text-ink-900">—</p>
+                <p data-field="sub" class="text-[11px] text-ink-400 mt-1"></p>
+              </div>
+
+              <p data-field="err" class="hidden text-[11px] text-danger mt-1"></p>
+              <p class="mt-3 text-xs font-semibold text-brand inline-flex items-center gap-1">
+                Ver en TCGMatch
+                <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 10L10 2M4 2h6v6"/></svg>
+              </p>
+            </a>
+
+            <a
+              id="modal-card-tcgp"
+              href="#"
+              target="_blank"
+              rel="noopener"
+              class="block min-w-0 rounded-xl border border-ink-200 hover:border-brand/30 hover:bg-brand/3 transition p-3 md:p-5"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <span class="flex items-center gap-2 text-sm font-bold text-ink-900">
+                  <span class="w-1.5 h-1.5 rounded-full bg-warn"></span>
+                  TCGPlayer.com
+                </span>
+                <span class="text-[10px] font-bold tracking-wider text-ink-400">USD</span>
+              </div>
+              <p data-field="price" class="font-display text-2xl font-bold tabular text-ink-900">—</p>
+              <p data-field="sub" class="text-[11px] text-ink-400 mt-1"></p>
+              <p data-field="err" class="hidden text-[11px] text-danger mt-1"></p>
+              <p class="mt-3 text-xs font-semibold text-brand inline-flex items-center gap-1">
+                Ver en TCGPlayer
+                <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 10L10 2M4 2h6v6"/></svg>
+              </p>
+            </a>
+          </div>
+
+          {/* Lista de mejores listados */}
+          <div class="mt-4 md:mt-8">
+            <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-ink-400 mb-2 md:mb-3">
+              Mejores listados
+            </p>
+            <div id="modal-listings" class="divide-y divide-ink-200 border-y border-ink-200">
+              <div class="py-4 text-center text-sm text-ink-400" data-empty>—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Map de cartas serializadas desde el SSR para no tener que volver a fetch
+  const dataEl = document.getElementById("cards-data");
+  const cardsById = new Map<string, any>();
+  if (dataEl) {
+    try {
+      const arr = JSON.parse(dataEl.textContent || "[]");
+      for (const c of arr) if (c?.id) cardsById.set(c.id, c);
+    } catch {}
+  }
+
+  const modal = document.getElementById("card-modal")!;
+  const $ = (s: string) => modal.querySelector(s) as HTMLElement | null;
+  const $$ = (s: string) => Array.from(modal.querySelectorAll(s)) as HTMLElement[];
+
+  const fmtCLP = (n: number) =>
+    new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+  const fmtUSD = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+
+  function openModal(card: any) {
+    // Imagen
+    const img = $("#modal-img") as HTMLImageElement;
+    img.src = card.images?.large || card.images?.small || "";
+    img.alt = card.name || "";
+
+    // Título y breadcrumb (desktop y mobile)
+    const name = card.name || "—";
+    ($("#modal-name") as HTMLElement).textContent = name;
+    const nameMobileEl = $("#modal-name-mobile");
+    if (nameMobileEl) nameMobileEl.textContent = name;
+    const parts = [card.set, card.number ? `#${card.number}` : "", card.rarity].filter(Boolean);
+    const breadcrumb = parts.join(" · ");
+    ($("#modal-breadcrumb") as HTMLElement).textContent = breadcrumb;
+    const breadcrumbMobileEl = $("#modal-breadcrumb-mobile");
+    if (breadcrumbMobileEl) breadcrumbMobileEl.textContent = breadcrumb;
+
+    // Metadata desktop
+    const metaRows: [string, string | undefined][] = [
+      ["Set", card.set],
+      ["Número", card.number ? `#${card.number}` : undefined],
+      ["Rareza", card.rarity],
+      ["HP", card.hp],
+      ["Tipo", [card.supertype, (card.types || []).join(", ")].filter(Boolean).join(" — ")],
+      ["Ilustrador", card.artist],
+    ];
+    const metaEl = $("#modal-meta") as HTMLElement;
+    metaEl.innerHTML = "";
+    for (const [label, value] of metaRows) {
+      if (!value) continue;
+      const row = document.createElement("div");
+      row.className = "flex items-baseline justify-between border-b border-ink-100 pb-2";
+      row.innerHTML = `
+        <dt class="text-[10px] font-bold tracking-[0.14em] uppercase text-ink-400">${label}</dt>
+        <dd class="text-sm font-semibold text-ink-900 text-right">${value}</dd>
+      `;
+      metaEl.appendChild(row);
+    }
+
+    // Metadata mobile (compacta — 2 columnas)
+    const metaMobile = $("#modal-meta-mobile");
+    if (metaMobile) {
+      // En mobile sólo dejamos los datos cortos (no Set/Ilustrador que ya están en breadcrumb o son largos)
+      const mobileRows: [string, string | undefined][] = [
+        ["HP", card.hp],
+        ["Tipo", (card.types || [])[0]],
+        ["Rareza", card.rarity],
+        ["Ilustrador", card.artist],
+      ];
+      metaMobile.innerHTML = "";
+      for (const [label, value] of mobileRows) {
+        if (!value) continue;
+        const block = document.createElement("div");
+        block.className = "leading-tight";
+        block.innerHTML = `
+          <dt class="text-[9px] font-bold tracking-[0.1em] uppercase text-ink-400">${label}</dt>
+          <dd class="font-semibold text-ink-900 truncate">${value}</dd>
+        `;
+        metaMobile.appendChild(block);
+      }
+    }
+
+    // Reset precios → estado loading
+    setLoadingState();
+
+    // Mostrar
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+
+    // Cargar precios
+    loadPrices(card);
+  }
+
+  function closeModal() {
+    modal.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function setLoadingState() {
+    const best = $("#modal-best-amount") as HTMLElement;
+    best.innerHTML = '<span class="text-ink-300 text-2xl">Cargando precios…</span>';
+    ($("#modal-best-source") as HTMLElement).textContent = "";
+    ($("#modal-best-stats") as HTMLElement).textContent = "";
+
+    // TCGMatch: limpiar desglose por idioma y mostrar fallback con "Consultando…"
+    const tcgmCard = $("#modal-card-tcgm") as HTMLElement;
+    const langsEl = tcgmCard.querySelector("[data-langs]") as HTMLElement;
+    const fallbackEl = tcgmCard.querySelector("[data-fallback]") as HTMLElement;
+    langsEl.innerHTML = "";
+    fallbackEl.classList.remove("hidden");
+    (fallbackEl.querySelector('[data-field="price"]') as HTMLElement).textContent = "—";
+    (fallbackEl.querySelector('[data-field="sub"]') as HTMLElement).textContent = "Consultando…";
+    const tcgmErr = tcgmCard.querySelector('[data-field="err"]') as HTMLElement;
+    tcgmErr.classList.add("hidden");
+    tcgmErr.textContent = "";
+
+    // TCGPlayer: solo el campo simple
+    const tcgpCard = $("#modal-card-tcgp") as HTMLElement;
+    (tcgpCard.querySelector('[data-field="price"]') as HTMLElement).textContent = "—";
+    (tcgpCard.querySelector('[data-field="sub"]') as HTMLElement).textContent = "Consultando…";
+    const tcgpErr = tcgpCard.querySelector('[data-field="err"]') as HTMLElement;
+    tcgpErr.classList.add("hidden");
+    tcgpErr.textContent = "";
+
+    const list = $("#modal-listings") as HTMLElement;
+    list.innerHTML =
+      '<div class="py-4 text-center text-sm text-ink-400">Buscando listados…</div>';
+  }
+
+  async function loadPrices(card: any) {
+    const params = new URLSearchParams({
+      name: card.name || "",
+      number: card.number || "",
+      set: card.set || "",
+    });
+    let data: any;
+    try {
+      const r = await fetch(`/api/prices?${params}`);
+      data = await r.json();
+      if (!r.ok && !data?.tcgmatch) {
+        renderError(data?.error || `HTTP ${r.status}`);
+        return;
+      }
+    } catch (e: any) {
+      renderError(e?.message || "Error de red");
+      return;
+    }
+    renderPrices(data);
+  }
+
+  function renderError(msg: string) {
+    const best = $("#modal-best-amount") as HTMLElement;
+    best.innerHTML = `<span class="text-ink-400 text-lg">No disponible</span>`;
+    ($("#modal-best-source") as HTMLElement).textContent = msg.slice(0, 80);
+    ($("#modal-best-stats") as HTMLElement).textContent = "";
+
+    for (const sel of ["#modal-card-tcgm", "#modal-card-tcgp"]) {
+      const c = $(sel) as HTMLElement;
+      (c.querySelector('[data-field="price"]') as HTMLElement).textContent = "—";
+      (c.querySelector('[data-field="sub"]') as HTMLElement).textContent = "";
+      const err = c.querySelector('[data-field="err"]') as HTMLElement;
+      err.classList.remove("hidden");
+      err.textContent = "Sin conexión";
+    }
+
+    ($("#modal-listings") as HTMLElement).innerHTML =
+      '<div class="py-4 text-center text-sm text-ink-400">Sin listados disponibles</div>';
+  }
+
+  function renderPrices(data: any) {
+    const dolarRate = data.dolarRate || 0;
+    const tcgm = data.tcgmatch || {};
+    const tcgp = data.tcgplayer || {};
+    const matchEx = tcgm.exactMatch;
+    const playerEx = tcgp.exactMatch;
+
+    // Card TCGMatch: muestra Inglés y Español por separado si están disponibles
+    const cTcgm = $("#modal-card-tcgm") as HTMLAnchorElement;
+    cTcgm.href = tcgm.searchUrl || matchEx?.url || "#";
+    const langsEl = cTcgm.querySelector("[data-langs]") as HTMLElement;
+    const fallbackEl = cTcgm.querySelector("[data-fallback]") as HTMLElement;
+    const errTcgm = cTcgm.querySelector('[data-field="err"]') as HTMLElement;
+    langsEl.innerHTML = "";
+    fallbackEl.classList.add("hidden");
+    errTcgm.classList.add("hidden");
+    errTcgm.textContent = "";
+
+    const hasLangs = !!(matchEx?.ingles || matchEx?.espanol);
+    if (hasLangs) {
+      const rows: Array<[string, "en" | "es", any]> = [
+        ["Inglés", "en", matchEx.ingles],
+        ["Español", "es", matchEx.espanol],
+      ];
+      for (const [label, code, data] of rows) {
+        if (!data) continue;
+        const row = document.createElement("div");
+        row.className = "flex items-baseline justify-between gap-3";
+        const badgeColor = code === "en"
+          ? "text-brand bg-brand/10 border-brand/25"
+          : "text-warn bg-warn/10 border-warn/25";
+        row.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-bold tracking-[0.1em] uppercase border rounded-full px-2 py-0.5 ${badgeColor}">${label}</span>
+            <span class="text-[11px] text-ink-400 truncate">${data.stock} ${data.stock === 1 ? "listado" : "listados"}</span>
+          </div>
+          <p class="font-display text-lg font-bold tabular text-ink-900 shrink-0">${fmtCLP(data.minPrice)}</p>
+        `;
+        langsEl.appendChild(row);
+      }
+    } else if (matchEx?.price) {
+      // Fallback: precio general sin desglose
+      fallbackEl.classList.remove("hidden");
+      (fallbackEl.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtCLP(matchEx.price);
+      (fallbackEl.querySelector('[data-field="sub"]') as HTMLElement).textContent =
+        matchEx.stock ? `desde ${matchEx.stock} ${matchEx.stock === 1 ? "listado" : "listados"}` : "";
+    } else {
+      fallbackEl.classList.remove("hidden");
+      (fallbackEl.querySelector('[data-field="price"]') as HTMLElement).innerHTML = '<span class="text-ink-300">—</span>';
+      (fallbackEl.querySelector('[data-field="sub"]') as HTMLElement).textContent = tcgm.error ? "" : "Sin listados activos";
+      if (tcgm.error) {
+        errTcgm.classList.remove("hidden");
+        errTcgm.textContent = "Error de conexión";
+      }
+    }
+
+    // Card TCGPlayer
+    const cTcgp = $("#modal-card-tcgp") as HTMLAnchorElement;
+    cTcgp.href = tcgp.searchUrl || playerEx?.url || "#";
+    if (playerEx?.price) {
+      (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(playerEx.price);
+      const clp = dolarRate ? `≈ ${fmtCLP(Math.round(playerEx.price * dolarRate))}` : "";
+      const lst = playerEx.stock || (tcgp.results || []).length || 0;
+      (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent =
+        [clp, lst ? `${lst} ${lst === 1 ? "listado" : "listados"}` : ""].filter(Boolean).join(" · ");
+    } else {
+      (cTcgp.querySelector('[data-field="price"]') as HTMLElement).innerHTML = '<span class="text-ink-300">—</span>';
+      (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent = tcgp.error ? "" : "Sin listados activos";
+      if (tcgp.error) {
+        const err = cTcgp.querySelector('[data-field="err"]') as HTMLElement;
+        err.classList.remove("hidden");
+        err.textContent = "Error de conexión";
+      }
+    }
+
+    // Mejor precio: comparar SOLO los precios de la carta exacta, normalizado a CLP.
+    // - TCGMatch: mejor entre Inglés y Español si están separados; si no, exactMatch.price
+    // - TCGPlayer: exactMatch.price convertido a CLP con el dólar
+    const tcgmEn = matchEx?.ingles?.minPrice || 0;
+    const tcgmEs = matchEx?.espanol?.minPrice || 0;
+    const tcgmBest = [tcgmEn, tcgmEs, matchEx?.price || 0].filter((n) => n > 0).reduce(
+      (a, b) => (a === 0 || b < a ? b : a),
+      0,
+    );
+    const playerBest = playerEx?.price || 0;
+    const playerCLP = playerBest && dolarRate ? Math.round(playerBest * dolarRate) : 0;
+
+    let best: { amount: string; source: string; stats: string } | null = null;
+    if (tcgmBest && (!playerCLP || tcgmBest <= playerCLP)) {
+      // Indicar idioma si viene del desglose
+      let label = "TCGMatch.cl · CLP";
+      if (tcgmEn && tcgmBest === tcgmEn && (!tcgmEs || tcgmEn <= tcgmEs)) label = "TCGMatch.cl · Inglés";
+      else if (tcgmEs && tcgmBest === tcgmEs) label = "TCGMatch.cl · Español";
+      best = {
+        amount: fmtCLP(tcgmBest),
+        source: label,
+        stats: "",
+      };
+    } else if (playerBest) {
+      best = {
+        amount: fmtUSD(playerBest),
+        source: dolarRate ? `≈ ${fmtCLP(playerCLP)} · TCGPlayer.com` : "TCGPlayer.com · USD",
+        stats: "",
+      };
+    }
+
+    const bestEl = $("#modal-best-amount") as HTMLElement;
+    if (best) {
+      bestEl.textContent = best.amount;
+      ($("#modal-best-source") as HTMLElement).textContent = best.source;
+      ($("#modal-best-stats") as HTMLElement).textContent = best.stats;
+    } else {
+      bestEl.innerHTML = '<span class="text-ink-400 text-lg">No disponible</span>';
+      ($("#modal-best-source") as HTMLElement).textContent = "";
+      ($("#modal-best-stats") as HTMLElement).textContent = "";
+    }
+
+    // Listados: combinar y ordenar por precio en CLP
+    const combined = [
+      ...((tcgm.results || []) as any[])
+        .filter((r) => r.price > 0)
+        .map((r) => ({
+          ...r,
+          _clp: r.price,
+          source: "TCGMatch",
+          displayPrice: fmtCLP(r.price),
+        })),
+      ...((tcgp.results || []) as any[])
+        .filter((r) => r.price > 0)
+        .map((r) => ({
+          ...r,
+          _clp: dolarRate ? Math.round(r.price * dolarRate) : r.price * 900,
+          source: "TCGPlayer",
+          displayPrice: dolarRate ? fmtCLP(Math.round(r.price * dolarRate)) : fmtUSD(r.price),
+        })),
+    ];
+    combined.sort((a: any, b: any) => a._clp - b._clp);
+
+    const listEl = $("#modal-listings") as HTMLElement;
+    listEl.innerHTML = "";
+    if (combined.length === 0) {
+      listEl.innerHTML = '<div class="py-4 text-center text-sm text-ink-400">Sin listados disponibles</div>';
+      return;
+    }
+    for (const item of combined.slice(0, 8)) {
+      const a = document.createElement("a");
+      a.href = item.url || "#";
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.className = "flex items-center justify-between gap-4 py-3 hover:bg-brand/4 transition px-2 -mx-2 rounded";
+      a.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-ink-900 truncate">
+            ${escapeHtml(item.name || "")}
+            ${item.number ? ` <span class="text-ink-400 font-normal">${escapeHtml(String(item.number))}</span>` : ""}
+            ${item.condition ? ` <span class="text-ink-400 font-normal">— ${escapeHtml(item.condition)}</span>` : ""}
+          </p>
+          <p class="text-[11px] text-ink-400 mt-0.5 truncate">
+            <span class="font-semibold">${item.source}</span>
+            ${item.set ? ` · ${escapeHtml(item.set)}` : ""}
+            ${item.stock ? ` · ${item.stock} ${item.stock === 1 ? "en stock" : "en stock"}` : ""}
+          </p>
+        </div>
+        <div class="shrink-0 flex items-center gap-2">
+          <p class="font-display text-base font-bold tabular">${item.displayPrice}</p>
+          <svg class="w-3 h-3 text-ink-400" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 10L10 2M4 2h6v6"/></svg>
+        </div>
+      `;
+      listEl.appendChild(a);
+    }
+  }
+
+  function escapeHtml(s: string) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Click delegado en cualquier [data-card-id]
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-close]")) {
+      closeModal();
+      return;
+    }
+    const item = target.closest("[data-card-id]") as HTMLElement | null;
+    if (item) {
+      e.preventDefault();
+      const id = item.dataset.cardId!;
+      const card =
+        cardsById.get(id) || {
+          id,
+          name: item.dataset.cardName,
+          number: item.dataset.cardNumber,
+          set: item.dataset.cardSet,
+          images: {},
+        };
+      openModal(card);
+    }
+  });
+
+  // Esc cierra
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
+  });
+</script>

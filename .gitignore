@@ -1,6 +1,18 @@
 # Dependencias
 node_modules/
 
+# Astro
+dist/
+.astro/
+
+# Netlify
+.netlify/
+
+# pnpm también dejó el lockfile, ese sí entra al repo (no se ignora)
+
+# Archivo de referencia del redesign (no es código del proyecto)
+REDESIGN_REFERENCE.html
+
 # Variables de entorno (contienen API keys)
 .env
 .env.local

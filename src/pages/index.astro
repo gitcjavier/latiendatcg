@@ -1,0 +1,88 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Tabs from "../components/Tabs.astro";
+import PageTitle from "../components/PageTitle.astro";
+import CardItem from "../components/CardItem.astro";
+import CardDetailModal from "../components/CardDetailModal.astro";
+import { searchCardsByName } from "../lib/pokemontcg.js";
+
+export const prerender = false;
+
+const query = (Astro.url.searchParams.get("q") ?? "").trim();
+
+let cards: any[] = [];
+let total = 0;
+let err: string | null = null;
+if (query && query.length >= 2) {
+  try {
+    const data = await searchCardsByName(query);
+    cards = data.cards ?? [];
+    total = data.total ?? cards.length;
+  } catch (e: any) {
+    err = e?.message ?? "Error al buscar cartas";
+  }
+}
+---
+
+<Layout title={query ? `${query} — PKM Prices` : "PKM Prices"}>
+  <Header query={query} />
+  <Tabs active="search" counts={{ search: query ? total : "00" }} />
+
+  <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+    {!query && (
+      <div class="text-center py-24">
+        <p class="text-xs font-semibold tracking-[0.18em] uppercase text-brand mb-4">
+          Comparador de precios
+        </p>
+        <h1 class="font-display text-5xl md:text-6xl font-bold leading-[1.05] tracking-tight">
+          Cartas <span class="text-brand">Pokémon</span><br />en tiempo real
+        </h1>
+        <p class="mt-6 text-ink-500">
+          TCGMatch.cl · TCGPlayer.com · Tipo de cambio del día
+        </p>
+        <p class="mt-12 inline-flex items-center gap-2 text-xs text-ink-500 border border-ink-200 rounded-full px-4 py-2">
+          ↑ Escribe en el buscador para comenzar
+        </p>
+      </div>
+    )}
+
+    {query && err && (
+      <div class="text-center py-24">
+        <p class="text-xs font-bold tracking-[0.18em] uppercase text-danger mb-4">Error</p>
+        <p class="font-display text-3xl font-bold">No se pudo buscar</p>
+        <p class="mt-4 text-ink-500 text-sm">{err}</p>
+      </div>
+    )}
+
+    {query && !err && (
+      <>
+        <PageTitle
+          eyebrow="Resultados"
+          title={query.split(" ")[0]}
+          accent={query.split(" ").slice(1).join(" ")}
+          meta={`${total} resultado${total !== 1 ? "s" : ""}`}
+        />
+
+        {cards.length === 0 ? (
+          <div class="text-center py-24 text-ink-400">
+            Sin resultados para "{query}"
+          </div>
+        ) : (
+          <>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
+              {cards.map((card) => <CardItem card={card} />)}
+            </div>
+            <script
+              type="application/json"
+              id="cards-data"
+              set:html={JSON.stringify(cards)}
+            />
+          </>
+        )}
+      </>
+    )}
+  </main>
+
+  <CardDetailModal />
+</Layout>

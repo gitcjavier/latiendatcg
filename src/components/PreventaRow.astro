@@ -1,0 +1,54 @@
+---
+interface Props {
+  product: {
+    title: string;
+    price: number;
+    available: boolean;
+    url: string;
+    image?: string;
+    store: string;
+    storeId?: string;
+  };
+}
+const { product } = Astro.props;
+
+const fmtCLP = (n: number) =>
+  new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+---
+
+<a
+  href={product.url}
+  target="_blank"
+  rel="noopener"
+  class="flex items-center gap-4 py-4 border-b border-ink-200 hover:bg-ink-100/50 transition px-2 -mx-2 rounded-md"
+>
+  <div class="w-14 h-14 shrink-0 rounded-md border border-ink-200 bg-ink-100 overflow-hidden grid place-items-center">
+    {product.image ? (
+      <img src={product.image} alt="" loading="lazy" class="w-full h-full object-contain" />
+    ) : null}
+  </div>
+
+  <div class="flex-1 min-w-0">
+    <h3 class="font-display font-bold text-base leading-tight truncate">{product.title}</h3>
+    <p class="text-[11px] text-ink-400 mt-1 tracking-wide font-semibold uppercase truncate">
+      {product.store}
+    </p>
+  </div>
+
+  <span class={[
+    "shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.12em] uppercase rounded-md px-3 py-1.5 border",
+    product.available
+      ? "text-success bg-success/8 border-success/30"
+      : "text-ink-400 bg-ink-100 border-ink-200",
+  ].join(" ")}>
+    <span class={[
+      "w-1.5 h-1.5 rounded-full",
+      product.available ? "bg-success" : "bg-ink-300",
+    ].join(" ")}></span>
+    {product.available ? "Con stock" : "Sin stock"}
+  </span>
+
+  <div class="shrink-0 text-right">
+    <p class="font-display text-xl font-bold tabular">{fmtCLP(product.price)}</p>
+  </div>
+</a>

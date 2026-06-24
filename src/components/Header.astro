@@ -1,0 +1,73 @@
+---
+interface Props {
+  query?: string;
+}
+const { query = "" } = Astro.props;
+---
+
+<header
+  class="sticky top-0 z-50 bg-paper/85 backdrop-blur-md border-b border-ink-200"
+>
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-6">
+    <!-- Brand -->
+    <a href="/" class="flex items-center gap-2 shrink-0">
+      <span class="w-7 h-7 rounded-full border-2 border-ink-900 relative grid place-items-center">
+        <span class="absolute inset-x-0 top-1/2 h-[2px] bg-ink-900 -translate-y-1/2"></span>
+        <span class="relative w-2 h-2 rounded-full bg-brand"></span>
+      </span>
+      <span class="font-display text-[19px] font-bold leading-none tracking-tight">
+        PKM <span class="text-brand">Prices</span>
+      </span>
+    </a>
+
+    <!-- Search -->
+    <form
+      action="/"
+      method="get"
+      class="flex-1 max-w-2xl flex items-center bg-paper border border-ink-200 rounded-lg pl-4 pr-1 focus-within:border-brand/40 focus-within:ring-4 focus-within:ring-brand/8 transition"
+    >
+      <svg class="w-4 h-4 text-ink-400 mr-2" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="9" cy="9" r="6"></circle>
+        <path d="M15 15l-3.5-3.5"></path>
+      </svg>
+      <input
+        type="text"
+        name="q"
+        value={query}
+        placeholder="Buscar carta…"
+        autocomplete="off"
+        spellcheck="false"
+        class="flex-1 bg-transparent border-none outline-none text-sm font-medium py-3 placeholder:text-ink-400"
+      />
+      <kbd class="hidden sm:inline-flex items-center text-[11px] font-mono text-ink-400 border border-ink-200 rounded px-1.5 py-0.5 mr-2">⌘ K</kbd>
+      <button
+        type="submit"
+        class="bg-ink-900 text-paper text-xs font-bold tracking-wide px-4 py-2 rounded-md hover:opacity-85 active:scale-95 transition"
+      >
+        BUSCAR
+      </button>
+    </form>
+
+    <!-- Dolar -->
+    <div id="dolar-pill" class="hidden sm:flex items-baseline gap-2 text-xs shrink-0">
+      <span class="text-ink-400 tracking-wider font-semibold">USD / CLP</span>
+      <span class="font-display font-bold text-base tabular text-ink-900" id="dolar-value">—</span>
+      <span class="text-success font-semibold tabular" id="dolar-delta"></span>
+    </div>
+  </div>
+</header>
+
+<script>
+  // Fetch dolar rate y mostrar
+  (async () => {
+    try {
+      const r = await fetch("/api/dolar");
+      if (!r.ok) return;
+      const { rate } = await r.json();
+      const v = document.getElementById("dolar-value");
+      if (v) {
+        v.textContent = "$ " + new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(rate);
+      }
+    } catch (_) {}
+  })();
+</script>
