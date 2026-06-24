@@ -64,6 +64,7 @@
 │   └── styles/global.css          # Tailwind 4 + design tokens
 ├── worker/                        # Cloudflare Worker para scraping de precios
 ├── scripts/local-prices-server.mjs # Server local para probar /api/prices sin Worker
+├── docs/adr/                      # Architecture Decision Records
 └── astro.config.mjs
 ```
 
@@ -144,6 +145,19 @@ Una vez desplegado, copia la URL (`https://pkm-prices-worker.<sub>.workers.dev`)
 ## 🎨 Diseño
 
 Look editorial: fondo blanco, tipografía **Fraunces** serif para headings, palabra clave en azul `#1d4ed8`, palette neutra con grises cálidos. Tabs con contadores, cards con sombras suaves, modal blanco con toques azules.
+
+---
+
+## 🧭 Decisiones técnicas (ADRs)
+
+Las decisiones de arquitectura importantes están documentadas en
+[`docs/adr/`](docs/adr/README.md) siguiendo el formato Architecture Decision
+Record. Cada decisión incluye contexto, alternativas consideradas y plan de
+revisión.
+
+| # | Título | Estado |
+|---|---|---|
+| [0001](docs/adr/0001-caching-strategy-precios.md) | Estrategia de caché para scraping de precios | Accepted |
 
 ---
 
