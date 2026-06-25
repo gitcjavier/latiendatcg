@@ -473,10 +473,10 @@
 
     let best: { amount: string; source: string; stats: string } | null = null;
     if (tcgmBest && (!playerCLP || tcgmBest <= playerCLP)) {
-      // Indicar idioma si viene del desglose
-      let label = "TCGMatch.cl · CLP";
-      if (tcgmEn && tcgmBest === tcgmEn && (!tcgmEs || tcgmEn <= tcgmEs)) label = "TCGMatch.cl · Inglés";
-      else if (tcgmEs && tcgmBest === tcgmEs) label = "TCGMatch.cl · Español";
+      // Mostrar SOLO el idioma cuando viene del desglose en/es.
+      let label = "TCGMatch.cl";
+      if (tcgmEn && tcgmBest === tcgmEn && (!tcgmEs || tcgmEn <= tcgmEs)) label = "Inglés";
+      else if (tcgmEs && tcgmBest === tcgmEs) label = "Español";
       best = {
         amount: fmtCLP(tcgmBest),
         source: label,
@@ -542,17 +542,27 @@
       a.target = "_blank";
       a.rel = "noopener";
       a.className = "flex items-center justify-between gap-4 py-3 hover:bg-brand/4 transition px-2 -mx-2 rounded";
+      const langLabel =
+        item.language === "english" || item.language === "en" ? "Inglés" :
+        item.language === "spanish" || item.language === "es" ? "Español" :
+        null;
+      const langBadge = langLabel
+        ? `<span class="shrink-0 text-[9px] font-bold tracking-[0.1em] uppercase border rounded-[3px] px-1.5 py-0.5 ${langLabel === "Inglés" ? "text-brand bg-brand/10 border-brand/25" : "text-warn bg-warn/10 border-warn/25"}">${langLabel}</span>`
+        : "";
       a.innerHTML = `
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold text-ink-900 truncate">
-            ${escapeHtml(item.name || "")}
-            ${item.number ? ` <span class="text-ink-400 font-normal">${escapeHtml(String(item.number))}</span>` : ""}
-            ${item.condition ? ` <span class="text-ink-400 font-normal">— ${escapeHtml(item.condition)}</span>` : ""}
+          <p class="text-sm font-semibold text-ink-900 truncate flex items-center gap-2">
+            ${langBadge}
+            <span class="truncate">
+              ${escapeHtml(item.name || "")}
+              ${item.number ? ` <span class="text-ink-400 font-normal">${escapeHtml(String(item.number))}</span>` : ""}
+              ${item.condition ? ` <span class="text-ink-400 font-normal">— ${escapeHtml(item.condition)}</span>` : ""}
+            </span>
           </p>
           <p class="text-[11px] text-ink-400 mt-0.5 truncate">
             <span class="font-semibold">${item.source}</span>
-            ${item.set ? ` · ${escapeHtml(item.set)}` : ""}
-            ${item.stock ? ` · ${item.stock} ${item.stock === 1 ? "en stock" : "en stock"}` : ""}
+            ${item.seller ? ` · ${escapeHtml(item.seller)}` : (item.set ? ` · ${escapeHtml(item.set)}` : "")}
+            ${item.stock ? ` · ${item.stock} en stock` : ""}
           </p>
         </div>
         <div class="shrink-0 flex items-center gap-2">
