@@ -459,37 +459,29 @@
       }
     }
 
-    // Mejor precio: comparar SOLO los precios de la carta exacta, normalizado a CLP.
-    // - TCGMatch: mejor entre Inglés y Español si están separados; si no, exactMatch.price
-    // - TCGPlayer: exactMatch.price convertido a CLP con el dólar
+    // "Mejor Precio" muestra SIEMPRE TCGMatch (Inglés o Español), nunca TCGPlayer.
+    // Es la decisión de compra relevante para el usuario chileno — TCGPlayer
+    // queda como referencia internacional en su propia card.
     const tcgmEn = matchEx?.ingles?.minPrice || 0;
     const tcgmEs = matchEx?.espanol?.minPrice || 0;
-    const tcgmBest = [tcgmEn, tcgmEs, matchEx?.price || 0].filter((n) => n > 0).reduce(
+    const tcgmBest = [tcgmEn, tcgmEs].filter((n) => n > 0).reduce(
       (a, b) => (a === 0 || b < a ? b : a),
       0,
     );
-    const playerBest = playerEx?.price || 0;
-    const playerCLP = playerBest && dolarRate ? Math.round(playerBest * dolarRate) : 0;
 
     let best: { amount: string; source: string; stats: string } | null = null;
-    if (tcgmBest && (!playerCLP || tcgmBest <= playerCLP)) {
-      // Mostrar SOLO el idioma cuando viene del desglose en/es.
-      let label = "TCGMatch.cl";
-      if (tcgmEn && tcgmBest === tcgmEn && (!tcgmEs || tcgmEn <= tcgmEs)) label = "Inglés";
-      else if (tcgmEs && tcgmBest === tcgmEs) label = "Español";
-      best = {
-        amount: fmtCLP(tcgmBest),
-        source: label,
-        stats: "",
-      };
-    } else if (playerBest) {
-      best = {
-        amount: fmtUSD(playerBest),
-        source: dolarRate ? `≈ ${fmtCLP(playerCLP)} · TCGPlayer.com` : "TCGPlayer.com · USD",
-        stats: "",
-      };
+    if (tcgmBest) {
+      // Solo etiquetamos por idioma cuando viene del desglose en/es.
+      const label =
+        tcgmEn && tcgmBest === tcgmEn && (!tcgmEs || tcgmEn <= tcgmEs) ? "Inglés" :
+        tcgmEs && tcgmBest === tcgmEs ? "Español" :
+        "TCGMatch.cl";
+      best = { amount: fmtCLP(tcgmBest), source: label, stats: "" };
+    } else if (matchEx?.price) {
+      // TCGMatch sin desglose en/es pero con precio general
+      best = { amount: fmtCLP(matchEx.price), source: "TCGMatch.cl", stats: "" };
     } else if (tcgpFallbackUsd) {
-      // Fallback: precio de mercado pokemontcg.io cuando el scrape falló
+      // Última red: precio de mercado pokemontcg.io para no dejar el banner vacío
       const fbClp = dolarRate ? Math.round(tcgpFallbackUsd * dolarRate) : 0;
       best = {
         amount: fbClp ? fmtCLP(fbClp) : fmtUSD(tcgpFallbackUsd),
