@@ -38,13 +38,29 @@ export async function getPricesFromTCGMatch(name, number, set) {
 
   const searchUrl = `https://www.tcgmatch.cl/cartas/busqueda/tcg=pokemon&q=${encodeURIComponent(query)}`;
 
-  // 1. Buscar candidatos
-  const searchRes = await axios.get(`${API}/catalog/search`, {
-    params: { tcg: "pokemon", q: query },
-    headers: HEADERS,
-    timeout: TIMEOUT,
-  });
-  const candidates = searchRes.data?.products || [];
+  // La API de TCGMatch hace match exacto del número como texto: q="Blaziken ex 24"
+  // devuelve 0 si el cardCode es "024/159". Probamos hasta 3 variantes para cubrir:
+  //   1. "<name> <number>"     (caso simple)
+  //   2. "<name> <padded3>"    ("024" en lugar de "24")
+  //   3. "<name>"              (fallback, filtramos después por pickBest)
+  const padded = number ? number.toString().padStart(3, "0") : "";
+  const queries = unique([
+    query,
+    name && padded ? `${name} ${padded}` : null,
+    name,
+  ]);
+
+  let candidates = [];
+  for (const q of queries) {
+    const res = await axios.get(`${API}/catalog/search`, {
+      params: { tcg: "pokemon", q },
+      headers: HEADERS,
+      timeout: TIMEOUT,
+    });
+    candidates = res.data?.products || [];
+    if (candidates.length) break;
+  }
+
   if (!candidates.length) {
     const empty = emptyResult(searchUrl);
     cacheSet(cacheKey, empty);
@@ -89,25 +105,48 @@ function emptyResult(searchUrl) {
   };
 }
 
+function unique(arr) {
+  const seen = new Set();
+  return arr.filter(x => {
+    if (!x) return false;
+    if (seen.has(x)) return false;
+    seen.add(x);
+    return true;
+  });
+}
+
+// Comparación numérica que ignora zero-padding: "24" == "024".
+function sameNumber(a, b) {
+  if (a == null || b == null) return false;
+  const na = parseInt(String(a).split("/")[0], 10);
+  const nb = parseInt(String(b).split("/")[0], 10);
+  if (Number.isNaN(na) || Number.isNaN(nb)) return String(a) === String(b);
+  return na === nb;
+}
+
 // Prefiere coincidencia exacta de cardCode + setName parecido
 function pickBest(candidates, number, set) {
   const numClean = (number || "").trim();
   const setLower = (set || "").toLowerCase();
   if (numClean) {
-    // cardCode viene como "199/165"; aceptamos también solo "199"
-    const exact = candidates.find(c => {
-      const code = (c.cardCode || "").toString();
-      const codeNum = code.split("/")[0];
-      const matchesNum = code === numClean || codeNum === numClean;
-      const matchesSet = !setLower || (c.setName || "").toLowerCase().includes(setLower) || setLower.includes((c.setName || "").toLowerCase());
-      return matchesNum && matchesSet;
+    // Primero: number + set coinciden
+    const withSet = candidates.find(c => {
+      const setName = (c.setName || "").toLowerCase();
+      const matchesSet = !setLower || setName.includes(setLower) || setLower.includes(setName);
+      return sameNumber(c.cardCode, numClean) && matchesSet;
     });
-    if (exact) return exact;
-    const numOnly = candidates.find(c => {
-      const code = (c.cardCode || "").toString();
-      return code === numClean || code.split("/")[0] === numClean;
-    });
+    if (withSet) return withSet;
+    // Si no, solo number — el primero que cuadre
+    const numOnly = candidates.find(c => sameNumber(c.cardCode, numClean));
     if (numOnly) return numOnly;
+  }
+  // Sin number, intentamos por set
+  if (setLower) {
+    const bySet = candidates.find(c => {
+      const setName = (c.setName || "").toLowerCase();
+      return setName.includes(setLower) || setLower.includes(setName);
+    });
+    if (bySet) return bySet;
   }
   return candidates[0];
 }
