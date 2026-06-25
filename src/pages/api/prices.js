@@ -1,41 +1,47 @@
 import { json, error } from "../../lib/respond.js";
+import { getPricesFromTCGMatch } from "../../lib/tcgmatch.js";
+import { getDolarRate } from "../../lib/dolar.js";
 
 export const prerender = false;
 
 /**
- * /api/prices proxy → reenvía al Cloudflare Worker que hace el scraping
- * (TCGMatch + TCGPlayer) usando Browser Rendering. La URL del Worker se
- * configura con la env PRICES_BACKEND_URL. Si no está, devuelve 503.
+ * /api/prices — precios de TCGMatch (CLP) y TCGPlayer (USD) en un solo call.
+ *
+ * Usa la API JSON pública de tcgmatch.cl directamente desde Netlify SSR —
+ * sin Puppeteer, sin Cloudflare Worker, sin rate limits.
+ *
+ * Ver docs/adr/0002-tcgmatch-api-publica.md para el contexto de la migración.
  */
 export async function GET({ url }) {
-  const backend =
-    process.env.PRICES_BACKEND_URL ?? import.meta.env?.PRICES_BACKEND_URL;
-
-  if (!backend) {
-    return error(
-      "Backend de precios no configurado. Define PRICES_BACKEND_URL apuntando al Cloudflare Worker.",
-      503,
-    );
-  }
-
   const name = url.searchParams.get("name")?.trim();
+  const number = (url.searchParams.get("number") || "").trim();
+  const set = (url.searchParams.get("set") || "").trim();
+
   if (!name || name.length < 2) {
     return error("Nombre de carta requerido.", 400);
   }
 
-  const upstream = new URL("/api/prices", backend);
-  for (const [k, v] of url.searchParams.entries()) upstream.searchParams.set(k, v);
-
   try {
-    const r = await fetch(upstream.toString(), {
-      // En producción Netlify Functions tiene 26s. En dev (mini-server local con
-      // Puppeteer normal) puede demorar más, así que dejamos margen ancho.
-      signal: AbortSignal.timeout(120000),
+    const [prices, dolar] = await Promise.allSettled([
+      getPricesFromTCGMatch(name, number, set),
+      getDolarRate(),
+    ]);
+
+    if (prices.status === "rejected") {
+      throw prices.reason;
+    }
+
+    const dolarRate = dolar.status === "fulfilled" ? dolar.value ?? null : null;
+
+    return json({
+      query: { name, number, set },
+      dolarRate,
+      tcgmatch: prices.value.tcgmatch,
+      tcgplayer: prices.value.tcgplayer,
+      catalogId: prices.value.catalogId,
     });
-    const data = await r.json();
-    return json(data, r.status);
   } catch (err) {
-    console.error("[/api/prices proxy]", err.message);
-    return error("No se pudo contactar el backend de precios.", 502, err.message);
+    console.error("[/api/prices]", err.message);
+    return error("Error al consultar precios.", 502, err.message);
   }
 }

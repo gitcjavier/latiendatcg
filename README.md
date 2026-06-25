@@ -158,6 +158,7 @@ revisión.
 | # | Título | Estado |
 |---|---|---|
 | [0001](docs/adr/0001-caching-strategy-precios.md) | Estrategia de caché para scraping de precios | Accepted |
+| [0002](docs/adr/0002-tcgmatch-api-publica.md) | Migrar a la API pública de TCGMatch (descontinuar Puppeteer) | Accepted |
 
 ---
 

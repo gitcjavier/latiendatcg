@@ -77,3 +77,4 @@ Cuándo o bajo qué condiciones esta decisión debería revisarse.
 | # | Título | Estado |
 |---|---|---|
 | [0001](0001-caching-strategy-precios.md) | Estrategia de caché para scraping de precios | Accepted |
+| [0002](0002-tcgmatch-api-publica.md) | Migrar a la API pública de TCGMatch (descontinuar Puppeteer) | Accepted |
