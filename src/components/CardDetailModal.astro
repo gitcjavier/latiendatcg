@@ -333,7 +333,8 @@
     }
 
     // TCGMatch: error siempre (no tenemos fallback para CLP)
-    const cTcgm = $("#modal-card-tcgm") as HTMLElement;
+    const cTcgm = $("#modal-card-tcgm") as HTMLAnchorElement;
+    cTcgm.href = tcgmatchSearchUrl(card);
     const tcgmFallback = cTcgm.querySelector("[data-fallback]") as HTMLElement;
     const tcgmLangs = cTcgm.querySelector("[data-langs]") as HTMLElement;
     tcgmLangs.innerHTML = "";
@@ -345,7 +346,8 @@
     errTcgm.textContent = "Servicio momentáneamente saturado";
 
     // TCGPlayer: si hay tcgpMarket usamos eso como precio aproximado
-    const cTcgp = $("#modal-card-tcgp") as HTMLElement;
+    const cTcgp = $("#modal-card-tcgp") as HTMLAnchorElement;
+    cTcgp.href = tcgplayerFallbackUrl(card);
     if (fallbackUsd) {
       (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(fallbackUsd);
       const clp = rate ? `≈ ${fmtCLP(Math.round(fallbackUsd * rate))}` : "";
@@ -365,6 +367,17 @@
       '<div class="py-4 text-center text-sm text-ink-400">Sin listados — vuelve a intentar más tarde</div>';
   }
 
+  // URLs de búsqueda que funcionan aunque el scraping no haya respondido.
+  function tcgmatchSearchUrl(card: any): string {
+    const q = [card?.name, card?.number].filter(Boolean).join(" ");
+    return `https://www.tcgmatch.cl/cartas/busqueda/tcg=pokemon&q=${encodeURIComponent(q)}`;
+  }
+  function tcgplayerFallbackUrl(card: any): string {
+    if (card?.tcgpUrl) return card.tcgpUrl;
+    const q = [card?.name, card?.set].filter(Boolean).join(" ");
+    return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(q)}&view=grid`;
+  }
+
   function renderPrices(data: any, card?: any) {
     const dolarRate = data.dolarRate || 0;
     const tcgm = data.tcgmatch || {};
@@ -374,7 +387,7 @@
 
     // Card TCGMatch: muestra Inglés y Español por separado si están disponibles
     const cTcgm = $("#modal-card-tcgm") as HTMLAnchorElement;
-    cTcgm.href = tcgm.searchUrl || matchEx?.url || "#";
+    cTcgm.href = tcgm.searchUrl || matchEx?.url || tcgmatchSearchUrl(card);
     const langsEl = cTcgm.querySelector("[data-langs]") as HTMLElement;
     const fallbackEl = cTcgm.querySelector("[data-fallback]") as HTMLElement;
     const errTcgm = cTcgm.querySelector('[data-field="err"]') as HTMLElement;
@@ -423,7 +436,7 @@
 
     // Card TCGPlayer (fallback a card.tcgpMarket si el scrape falló)
     const cTcgp = $("#modal-card-tcgp") as HTMLAnchorElement;
-    cTcgp.href = tcgp.searchUrl || playerEx?.url || "#";
+    cTcgp.href = tcgp.searchUrl || playerEx?.url || tcgplayerFallbackUrl(card);
     const tcgpFallbackUsd = typeof card?.tcgpMarket === "number" && card.tcgpMarket > 0 ? card.tcgpMarket : null;
     if (playerEx?.price) {
       (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(playerEx.price);
