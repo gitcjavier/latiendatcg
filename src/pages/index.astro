@@ -29,19 +29,19 @@ if (query && query.length >= 2) {
   <Header query={query} />
   <Tabs active="search" counts={{ search: query ? total : "00" }} />
 
-  <main class="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-12">
     {!query && (
-      <div class="text-center py-24">
-        <p class="text-xs font-semibold tracking-[0.18em] uppercase text-brand mb-4">
+      <div class="text-center py-16 sm:py-24">
+        <p class="text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-brand mb-3 sm:mb-4">
           Comparador de precios
         </p>
-        <h1 class="font-display text-5xl md:text-6xl font-bold leading-[1.05] tracking-tight">
+        <h1 class="font-display text-[2.25rem] sm:text-5xl md:text-6xl font-bold leading-[1.05] tracking-tight">
           Cartas <span class="text-brand">Pokémon</span><br />en tiempo real
         </h1>
-        <p class="mt-6 text-ink-500">
+        <p class="mt-5 sm:mt-6 text-ink-500 text-sm sm:text-base px-2">
           TCGMatch.cl · TCGPlayer.com · Tipo de cambio del día
         </p>
-        <p class="mt-12 inline-flex items-center gap-2 text-xs text-ink-500 border border-ink-200 rounded-full px-4 py-2">
+        <p class="mt-10 sm:mt-12 inline-flex items-center gap-2 text-xs text-ink-500 border border-ink-200 rounded-full px-4 py-2">
           ↑ Escribe en el buscador para comenzar
         </p>
       </div>

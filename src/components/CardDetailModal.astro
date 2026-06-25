@@ -91,7 +91,7 @@
           </div>
 
           {/* Dos cards: TCGMatch + TCGPlayer — siempre 2 columnas */}
-          <div class="grid grid-cols-2 gap-2 md:gap-3 mt-2 md:mt-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 mt-2 md:mt-3">
             <a
               id="modal-card-tcgm"
               href="#"
@@ -411,7 +411,7 @@
           : "text-warn bg-warn/10 border-warn/25";
         row.innerHTML = `
           <div class="flex items-center gap-2 min-w-0">
-            <span class="text-[10px] font-bold tracking-[0.1em] uppercase border rounded-full px-2 py-0.5 ${badgeColor}">${label}</span>
+            <span class="text-[10px] font-bold tracking-[0.1em] uppercase border rounded-[3px] px-1.5 py-0.5 ${badgeColor}">${label}</span>
             <span class="text-[11px] text-ink-400 truncate">${data.stock} ${data.stock === 1 ? "listado" : "listados"}</span>
           </div>
           <p class="font-display text-lg font-bold tabular text-ink-900 shrink-0">${fmtCLP(data.minPrice)}</p>
