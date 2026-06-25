@@ -64,6 +64,7 @@ const { query = "" } = Astro.props;
       const r = await fetch("/api/dolar");
       if (!r.ok) return;
       const { rate } = await r.json();
+      (window as any).__dolarRate = rate;
       const v = document.getElementById("dolar-value");
       if (v) {
         v.textContent = "$ " + new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(rate);

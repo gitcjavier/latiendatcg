@@ -302,36 +302,70 @@
       const r = await fetch(`/api/prices?${params}`);
       data = await r.json();
       if (!r.ok && !data?.tcgmatch) {
-        renderError(data?.error || `HTTP ${r.status}`);
+        renderError(card, data?.error || `HTTP ${r.status}`);
         return;
       }
     } catch (e: any) {
-      renderError(e?.message || "Error de red");
+      renderError(card, e?.message || "Error de red");
       return;
     }
-    renderPrices(data);
+    renderPrices(data, card);
   }
 
-  function renderError(msg: string) {
-    const best = $("#modal-best-amount") as HTMLElement;
-    best.innerHTML = `<span class="text-ink-400 text-lg">No disponible</span>`;
-    ($("#modal-best-source") as HTMLElement).textContent = msg.slice(0, 80);
-    ($("#modal-best-stats") as HTMLElement).textContent = "";
+  // Cuando /api/prices falla por completo (network, 5xx) usamos como fallback
+  // el precio TCGP que ya viene de pokemontcg.io con cada carta (`tcgpMarket`).
+  function renderError(card: any, msg: string) {
+    const fallbackUsd = typeof card?.tcgpMarket === "number" && card.tcgpMarket > 0 ? card.tcgpMarket : null;
+    const rate = (window as any).__dolarRate || 0;
 
-    for (const sel of ["#modal-card-tcgm", "#modal-card-tcgp"]) {
-      const c = $(sel) as HTMLElement;
-      (c.querySelector('[data-field="price"]') as HTMLElement).textContent = "—";
-      (c.querySelector('[data-field="sub"]') as HTMLElement).textContent = "";
-      const err = c.querySelector('[data-field="err"]') as HTMLElement;
-      err.classList.remove("hidden");
-      err.textContent = "Sin conexión";
+    const best = $("#modal-best-amount") as HTMLElement;
+    if (fallbackUsd) {
+      const clp = rate ? Math.round(fallbackUsd * rate) : 0;
+      best.innerHTML = clp
+        ? `${fmtCLP(clp)} <span class="text-ink-400 text-base font-semibold ml-1">(${fmtUSD(fallbackUsd)})</span>`
+        : fmtUSD(fallbackUsd);
+      ($("#modal-best-source") as HTMLElement).textContent = "Precio de referencia · pokemontcg.io";
+      ($("#modal-best-stats") as HTMLElement).textContent = "scraping no disponible";
+    } else {
+      best.innerHTML = `<span class="text-ink-400 text-lg">No disponible</span>`;
+      ($("#modal-best-source") as HTMLElement).textContent = msg.slice(0, 80);
+      ($("#modal-best-stats") as HTMLElement).textContent = "";
+    }
+
+    // TCGMatch: error siempre (no tenemos fallback para CLP)
+    const cTcgm = $("#modal-card-tcgm") as HTMLElement;
+    const tcgmFallback = cTcgm.querySelector("[data-fallback]") as HTMLElement;
+    const tcgmLangs = cTcgm.querySelector("[data-langs]") as HTMLElement;
+    tcgmLangs.innerHTML = "";
+    tcgmFallback.classList.remove("hidden");
+    (tcgmFallback.querySelector('[data-field="price"]') as HTMLElement).innerHTML = '<span class="text-ink-300">—</span>';
+    (tcgmFallback.querySelector('[data-field="sub"]') as HTMLElement).textContent = "";
+    const errTcgm = cTcgm.querySelector('[data-field="err"]') as HTMLElement;
+    errTcgm.classList.remove("hidden");
+    errTcgm.textContent = "Servicio momentáneamente saturado";
+
+    // TCGPlayer: si hay tcgpMarket usamos eso como precio aproximado
+    const cTcgp = $("#modal-card-tcgp") as HTMLElement;
+    if (fallbackUsd) {
+      (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(fallbackUsd);
+      const clp = rate ? `≈ ${fmtCLP(Math.round(fallbackUsd * rate))}` : "";
+      (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent =
+        [clp, "precio de mercado pokemontcg.io"].filter(Boolean).join(" · ");
+      const errTcgp = cTcgp.querySelector('[data-field="err"]') as HTMLElement;
+      errTcgp.classList.add("hidden");
+    } else {
+      (cTcgp.querySelector('[data-field="price"]') as HTMLElement).innerHTML = '<span class="text-ink-300">—</span>';
+      (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent = "";
+      const errTcgp = cTcgp.querySelector('[data-field="err"]') as HTMLElement;
+      errTcgp.classList.remove("hidden");
+      errTcgp.textContent = "Servicio momentáneamente saturado";
     }
 
     ($("#modal-listings") as HTMLElement).innerHTML =
-      '<div class="py-4 text-center text-sm text-ink-400">Sin listados disponibles</div>';
+      '<div class="py-4 text-center text-sm text-ink-400">Sin listados — vuelve a intentar más tarde</div>';
   }
 
-  function renderPrices(data: any) {
+  function renderPrices(data: any, card?: any) {
     const dolarRate = data.dolarRate || 0;
     const tcgm = data.tcgmatch || {};
     const tcgp = data.tcgplayer || {};
@@ -383,26 +417,32 @@
       (fallbackEl.querySelector('[data-field="sub"]') as HTMLElement).textContent = tcgm.error ? "" : "Sin listados activos";
       if (tcgm.error) {
         errTcgm.classList.remove("hidden");
-        errTcgm.textContent = "Error de conexión";
+        errTcgm.textContent = "Servicio momentáneamente saturado";
       }
     }
 
-    // Card TCGPlayer
+    // Card TCGPlayer (fallback a card.tcgpMarket si el scrape falló)
     const cTcgp = $("#modal-card-tcgp") as HTMLAnchorElement;
     cTcgp.href = tcgp.searchUrl || playerEx?.url || "#";
+    const tcgpFallbackUsd = typeof card?.tcgpMarket === "number" && card.tcgpMarket > 0 ? card.tcgpMarket : null;
     if (playerEx?.price) {
       (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(playerEx.price);
       const clp = dolarRate ? `≈ ${fmtCLP(Math.round(playerEx.price * dolarRate))}` : "";
       const lst = playerEx.stock || (tcgp.results || []).length || 0;
       (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent =
         [clp, lst ? `${lst} ${lst === 1 ? "listado" : "listados"}` : ""].filter(Boolean).join(" · ");
+    } else if (tcgpFallbackUsd) {
+      (cTcgp.querySelector('[data-field="price"]') as HTMLElement).textContent = fmtUSD(tcgpFallbackUsd);
+      const clp = dolarRate ? `≈ ${fmtCLP(Math.round(tcgpFallbackUsd * dolarRate))}` : "";
+      (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent =
+        [clp, "mercado pokemontcg.io"].filter(Boolean).join(" · ");
     } else {
       (cTcgp.querySelector('[data-field="price"]') as HTMLElement).innerHTML = '<span class="text-ink-300">—</span>';
       (cTcgp.querySelector('[data-field="sub"]') as HTMLElement).textContent = tcgp.error ? "" : "Sin listados activos";
       if (tcgp.error) {
         const err = cTcgp.querySelector('[data-field="err"]') as HTMLElement;
         err.classList.remove("hidden");
-        err.textContent = "Error de conexión";
+        err.textContent = "Servicio momentáneamente saturado";
       }
     }
 
@@ -434,6 +474,14 @@
         amount: fmtUSD(playerBest),
         source: dolarRate ? `≈ ${fmtCLP(playerCLP)} · TCGPlayer.com` : "TCGPlayer.com · USD",
         stats: "",
+      };
+    } else if (tcgpFallbackUsd) {
+      // Fallback: precio de mercado pokemontcg.io cuando el scrape falló
+      const fbClp = dolarRate ? Math.round(tcgpFallbackUsd * dolarRate) : 0;
+      best = {
+        amount: fbClp ? fmtCLP(fbClp) : fmtUSD(tcgpFallbackUsd),
+        source: fbClp ? `${fmtUSD(tcgpFallbackUsd)} · pokemontcg.io` : "pokemontcg.io",
+        stats: "precio de referencia",
       };
     }
 
