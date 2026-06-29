@@ -1,0 +1,149 @@
+---
+// Modal de carga que aparece al hacer submit en el buscador.
+// Sprites de Pokémon de 1ª generación (PokéAPI) que caen formando una pila.
+// Sprite source: GitHub PokeAPI/sprites (public, sin auth).
+const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+// Curado: 6 sprites icónicos de Gen 1 con buen look frontal
+const POKE_IDS = [
+  6,   // Charizard
+  25,  // Pikachu
+  150, // Mewtwo
+  94,  // Gengar
+  143, // Snorlax
+  133, // Eevee
+];
+---
+
+<div
+  id="search-loader"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="search-loader-title"
+  class="search-loader fixed inset-0 z-[200]"
+>
+  <div class="absolute inset-0 bg-paper/92 backdrop-blur-md"></div>
+
+  <div class="relative h-full grid place-items-center px-6">
+    <div class="text-center">
+      <div class="poke-stack relative w-[280px] h-[200px] mx-auto">
+        {POKE_IDS.map((id, i) => (
+          <img
+            class={`poke poke-${i + 1}`}
+            src={`${SPRITE_BASE}/${id}.png`}
+            alt=""
+            width="96"
+            height="96"
+            loading="eager"
+            decoding="async"
+          />
+        ))}
+      </div>
+
+      <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold mt-8 tracking-tight">
+        Buscando <span class="text-brand">Pokémon</span>…
+      </p>
+      <p class="text-ink-400 text-sm mt-2">
+        Consultando TCGMatch y TCGPlayer
+      </p>
+
+      <div class="mt-6 inline-flex items-center gap-1.5">
+        <span class="search-dot"></span>
+        <span class="search-dot"></span>
+        <span class="search-dot"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .search-loader { display: none; }
+  .search-loader.is-visible { display: block; }
+
+  .poke {
+    position: absolute;
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+    opacity: 0;
+    /* CSS variables se usan en las animaciones para mantener la rotación */
+    --rot: 0deg;
+    transform: translateY(-60px) rotate(var(--rot)) scale(0.7);
+    filter: drop-shadow(0 4px 8px rgba(11, 11, 11, 0.18));
+  }
+
+  .search-loader.is-visible .poke {
+    animation: poke-fall 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Posiciones en abanico — bottom: 0 es el suelo de la pila */
+  .poke-1 { left:   8px; bottom: 16px; --rot: -16deg; animation-delay: 0s; }
+  .poke-2 { left:  56px; bottom:  6px; --rot:  -8deg; animation-delay: 0.12s; }
+  .poke-3 { left: 100px; bottom:  0px; --rot:   0deg; animation-delay: 0.24s; }
+  .poke-4 { left: 140px; bottom:  4px; --rot:   6deg; animation-delay: 0.36s; }
+  .poke-5 { left: 184px; bottom: 12px; --rot:  14deg; animation-delay: 0.48s; }
+  .poke-6 { left:  98px; bottom: 86px; --rot:   2deg; animation-delay: 0.62s; }
+
+  @keyframes poke-fall {
+    0% {
+      opacity: 0;
+      transform: translateY(-80px) rotate(var(--rot)) scale(0.6);
+    }
+    70% {
+      opacity: 1;
+      transform: translateY(8px) rotate(var(--rot)) scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) rotate(var(--rot)) scale(1);
+    }
+  }
+
+  .search-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-brand, #1d4ed8);
+    opacity: 0.25;
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  .search-dot:nth-child(2) { animation-delay: 0.15s; }
+  .search-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .search-loader.is-visible .poke {
+      animation: none;
+      opacity: 1;
+      transform: rotate(var(--rot));
+    }
+    .search-dot { animation: none; opacity: 0.6; }
+  }
+</style>
+
+<script>
+  // Se activa al submit del form del Header. Permanece visible hasta que
+  // la nueva página termina de renderizar (i.e. nunca, porque navegamos).
+  const loader = document.getElementById("search-loader");
+  if (loader) {
+    document.querySelectorAll<HTMLFormElement>('form[action="/"]').forEach((form) => {
+      form.addEventListener("submit", (e) => {
+        const input = form.querySelector<HTMLInputElement>('input[name="q"]');
+        const q = input?.value?.trim() ?? "";
+        if (q.length < 2) return; // dejamos que el browser muestre validación si es muy corto
+        loader.classList.add("is-visible");
+        // Por si algún script previene el submit: re-ocultamos a los 8s para no quedar
+        // pegados. En el flujo normal nunca se llega aquí porque la página navega.
+        setTimeout(() => loader.classList.remove("is-visible"), 8000);
+      });
+    });
+
+    // pageshow se dispara al volver con back/forward de cache → ocultamos.
+    window.addEventListener("pageshow", () => {
+      loader.classList.remove("is-visible");
+    });
+  }
+</script>
