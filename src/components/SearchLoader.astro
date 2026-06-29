@@ -1,9 +1,8 @@
 ---
-// Modal de carga que aparece al hacer submit en el buscador.
-// Sprites de Pokémon de 1ª generación (PokéAPI) que caen formando una pila.
-// Sprite source: GitHub PokeAPI/sprites (public, sin auth).
+// Loader que aparece al hacer submit en el buscador.
+// Sprites de Pokémon Gen 1 + fondo de bosque dentro de un círculo.
+// El resto de la página se ve detrás con backdrop blur.
 const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
-// Curado: 6 sprites icónicos de Gen 1 con buen look frontal
 const POKE_IDS = [
   6,   // Charizard
   25,  // Pikachu
@@ -21,35 +20,45 @@ const POKE_IDS = [
   aria-labelledby="search-loader-title"
   class="search-loader fixed inset-0 z-[200]"
 >
-  <div class="absolute inset-0 bg-paper/92 backdrop-blur-md"></div>
+  {/* Backdrop: blur sobre el contenido, sin tapar con blanco */}
+  <div class="absolute inset-0 backdrop-blur-md bg-ink-900/15"></div>
 
-  <div class="relative h-full grid place-items-center px-6">
-    <div class="text-center">
-      <div class="poke-stack relative w-[280px] h-[200px] mx-auto">
-        {POKE_IDS.map((id, i) => (
-          <img
-            class={`poke poke-${i + 1}`}
-            src={`${SPRITE_BASE}/${id}.png`}
-            alt=""
-            width="96"
-            height="96"
-            loading="eager"
-            decoding="async"
-          />
-        ))}
-      </div>
+  {/* Círculo con bosque + contenido */}
+  <div class="absolute inset-0 grid place-items-center px-6">
+    <div class="forest-circle relative rounded-full overflow-hidden shadow-[0_24px_80px_-12px_rgba(11,11,11,0.45)] ring-4 ring-brand/20">
+      {/* Fondo bosque */}
+      <div class="forest-bg absolute inset-0"></div>
+      {/* Vignette + tint azul para legibilidad */}
+      <div class="absolute inset-0 bg-gradient-radial-vignette"></div>
 
-      <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold mt-8 tracking-tight">
-        Buscando <span class="text-brand">Pokémon</span>…
-      </p>
-      <p class="text-ink-400 text-sm mt-2">
-        Consultando TCGMatch y TCGPlayer
-      </p>
+      {/* Contenido */}
+      <div class="relative h-full w-full flex flex-col items-center justify-center text-center p-8">
+        <div class="poke-stack relative w-[260px] h-[160px] mx-auto">
+          {POKE_IDS.map((id, i) => (
+            <img
+              class={`poke poke-${i + 1}`}
+              src={`${SPRITE_BASE}/${id}.png`}
+              alt=""
+              width="96"
+              height="96"
+              loading="eager"
+              decoding="async"
+            />
+          ))}
+        </div>
 
-      <div class="mt-6 inline-flex items-center gap-1.5">
-        <span class="search-dot"></span>
-        <span class="search-dot"></span>
-        <span class="search-dot"></span>
+        <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold mt-6 tracking-tight text-brand drop-shadow-[0_2px_4px_rgba(255,255,255,0.9)]">
+          Buscando carta…
+        </p>
+        <p class="text-brand text-sm mt-2 font-semibold drop-shadow-[0_1px_3px_rgba(255,255,255,0.85)]">
+          Consultando TCGMatch y TCGPlayer
+        </p>
+
+        <div class="mt-5 inline-flex items-center gap-1.5">
+          <span class="search-dot"></span>
+          <span class="search-dot"></span>
+          <span class="search-dot"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -59,16 +68,43 @@ const POKE_IDS = [
   .search-loader { display: none; }
   .search-loader.is-visible { display: block; }
 
+  .forest-circle {
+    width: min(86vw, 380px);
+    aspect-ratio: 1;
+  }
+  @media (min-width: 640px) {
+    .forest-circle { width: 460px; }
+  }
+
+  /* Imagen real en /forest.jpg con fallback verde estilo "bosque anime".
+     Si no existe el archivo, el gradient se ve detrás. */
+  .forest-bg {
+    background-color: #1a3a1d;
+    background-image:
+      url("/forest.jpg"),
+      radial-gradient(circle at 30% 25%, #2d5e35 0%, transparent 45%),
+      radial-gradient(circle at 70% 35%, #3a7d3f 0%, transparent 50%),
+      radial-gradient(circle at 50% 75%, #14532d 0%, #0f3d22 80%);
+    background-size: cover, auto, auto, auto;
+    background-position: center;
+  }
+
+  /* Tint azul brand + vignette para que el texto resalte */
+  .bg-gradient-radial-vignette {
+    background:
+      radial-gradient(circle at center, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.25) 35%, transparent 60%),
+      radial-gradient(circle at center, transparent 50%, rgba(11,11,11,0.35) 100%);
+  }
+
   .poke {
     position: absolute;
-    width: 96px;
-    height: 96px;
+    width: 88px;
+    height: 88px;
     image-rendering: pixelated;
     opacity: 0;
-    /* CSS variables se usan en las animaciones para mantener la rotación */
     --rot: 0deg;
     transform: translateY(-60px) rotate(var(--rot)) scale(0.7);
-    filter: drop-shadow(0 4px 8px rgba(11, 11, 11, 0.18));
+    filter: drop-shadow(0 4px 8px rgba(11, 11, 11, 0.35));
   }
 
   .search-loader.is-visible .poke {
@@ -76,12 +112,12 @@ const POKE_IDS = [
   }
 
   /* Posiciones en abanico — bottom: 0 es el suelo de la pila */
-  .poke-1 { left:   8px; bottom: 16px; --rot: -16deg; animation-delay: 0s; }
-  .poke-2 { left:  56px; bottom:  6px; --rot:  -8deg; animation-delay: 0.12s; }
-  .poke-3 { left: 100px; bottom:  0px; --rot:   0deg; animation-delay: 0.24s; }
-  .poke-4 { left: 140px; bottom:  4px; --rot:   6deg; animation-delay: 0.36s; }
-  .poke-5 { left: 184px; bottom: 12px; --rot:  14deg; animation-delay: 0.48s; }
-  .poke-6 { left:  98px; bottom: 86px; --rot:   2deg; animation-delay: 0.62s; }
+  .poke-1 { left:   0px; bottom: 12px; --rot: -16deg; animation-delay: 0s; }
+  .poke-2 { left:  44px; bottom:  4px; --rot:  -8deg; animation-delay: 0.12s; }
+  .poke-3 { left:  88px; bottom:  0px; --rot:   0deg; animation-delay: 0.24s; }
+  .poke-4 { left: 128px; bottom:  4px; --rot:   6deg; animation-delay: 0.36s; }
+  .poke-5 { left: 168px; bottom: 10px; --rot:  14deg; animation-delay: 0.48s; }
+  .poke-6 { left:  88px; bottom: 80px; --rot:   2deg; animation-delay: 0.62s; }
 
   @keyframes poke-fall {
     0% {
@@ -99,19 +135,20 @@ const POKE_IDS = [
   }
 
   .search-dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 9999px;
     background: var(--color-brand, #1d4ed8);
-    opacity: 0.25;
+    opacity: 0.35;
     animation: dot-pulse 1.2s ease-in-out infinite;
+    box-shadow: 0 1px 2px rgba(255,255,255,0.8);
   }
   .search-dot:nth-child(2) { animation-delay: 0.15s; }
   .search-dot:nth-child(3) { animation-delay: 0.3s; }
 
   @keyframes dot-pulse {
-    0%, 100% { opacity: 0.25; transform: scale(0.8); }
-    50% { opacity: 1; transform: scale(1.15); }
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.2); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -120,28 +157,23 @@ const POKE_IDS = [
       opacity: 1;
       transform: rotate(var(--rot));
     }
-    .search-dot { animation: none; opacity: 0.6; }
+    .search-dot { animation: none; opacity: 0.7; }
   }
 </style>
 
 <script>
-  // Se activa al submit del form del Header. Permanece visible hasta que
-  // la nueva página termina de renderizar (i.e. nunca, porque navegamos).
   const loader = document.getElementById("search-loader");
   if (loader) {
     document.querySelectorAll<HTMLFormElement>('form[action="/"]').forEach((form) => {
       form.addEventListener("submit", (e) => {
         const input = form.querySelector<HTMLInputElement>('input[name="q"]');
         const q = input?.value?.trim() ?? "";
-        if (q.length < 2) return; // dejamos que el browser muestre validación si es muy corto
+        if (q.length < 2) return;
         loader.classList.add("is-visible");
-        // Por si algún script previene el submit: re-ocultamos a los 8s para no quedar
-        // pegados. En el flujo normal nunca se llega aquí porque la página navega.
         setTimeout(() => loader.classList.remove("is-visible"), 8000);
       });
     });
 
-    // pageshow se dispara al volver con back/forward de cache → ocultamos.
     window.addEventListener("pageshow", () => {
       loader.classList.remove("is-visible");
     });
