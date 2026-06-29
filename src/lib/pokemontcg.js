@@ -137,6 +137,8 @@ function normalizeCard(c) {
     name: c.name || '',
     set: c.set?.name || c.series || '',
     setId: c.set?.id || '',
+    setPrintedTotal: c.set?.printedTotal ?? null,
+    setTotal: c.set?.total ?? null,
     number: c.number || '',
     rarity: c.rarity || '',
     supertype: c.supertype || '',
@@ -179,27 +181,87 @@ function extractTcgpMarket(prices) {
 }
 
 /**
- * Búsqueda de cartas por nombre directo en pokemontcg.io.
- * Reemplaza el wrapper apitcg.com porque pokemontcg.io devuelve los precios
- * de TCGPlayer en el mismo response (sin scraping).
+ * Clasifica el input del buscador en nombre / número / nombre + número.
+ *
+ * Soporta:
+ *   "charizard ex"     → { name: "charizard ex" }
+ *   "022"              → { number: 22 }
+ *   "022/086"          → { number: 22, printedTotal: 86 }
+ *   "charizard 022"    → { name: "charizard", number: 22 }
+ *   "022 charizard"    → { name: "charizard", number: 22 }
+ *
+ * Devolvemos `number` como int para construir el query Lucene sin zero-padding
+ * (pokemontcg.io guarda "22" no "022"). `printedTotal` se aplica como filtro
+ * post-fetch porque su shape varía mucho entre sets.
  */
-export async function searchCardsByName(name) {
-  const trimmed = (name || '').trim();
-  if (!trimmed) return { total: 0, cards: [] };
+export function parseSearchInput(raw) {
+  const s = (raw || '').trim();
+  if (!s) return { name: '' };
 
-  // q=name:"x" → match exacto del nombre (con comillas), orderBy releaseDate desc
-  // pageSize 50 — suficiente para una primera página
+  // Solo número o código completo
+  const onlyCode = s.match(/^(\d{1,3})(?:\/(\d{1,3}))?$/);
+  if (onlyCode) {
+    return {
+      number: parseInt(onlyCode[1], 10),
+      printedTotal: onlyCode[2] != null ? parseInt(onlyCode[2], 10) : null,
+    };
+  }
+
+  // <nombre> <código> o <código> <nombre>
+  const nameThenCode = s.match(/^(.+?)\s+(\d{1,3})(?:\/(\d{1,3}))?$/);
+  if (nameThenCode) {
+    return {
+      name: nameThenCode[1].trim(),
+      number: parseInt(nameThenCode[2], 10),
+      printedTotal: nameThenCode[3] != null ? parseInt(nameThenCode[3], 10) : null,
+    };
+  }
+  const codeThenName = s.match(/^(\d{1,3})(?:\/(\d{1,3}))?\s+(.+?)$/);
+  if (codeThenName) {
+    return {
+      name: codeThenName[3].trim(),
+      number: parseInt(codeThenName[1], 10),
+      printedTotal: codeThenName[2] != null ? parseInt(codeThenName[2], 10) : null,
+    };
+  }
+
+  return { name: s };
+}
+
+/**
+ * Búsqueda de cartas. Acepta nombre, código ("022"), código completo
+ * ("022/086") o nombre + código. Construye el query Lucene de pokemontcg.io
+ * según corresponda y filtra por printedTotal cuando viene en el input.
+ */
+export async function searchCards(input) {
+  const parsed = parseSearchInput(input);
+  const parts = [];
+  if (parsed.name) parts.push(`name:"${parsed.name}"`);
+  if (typeof parsed.number === 'number') parts.push(`number:${parsed.number}`);
+
+  if (!parts.length) return { total: 0, cards: [] };
+
   const res = await getWithRetry(`${API_BASE}/cards`, {
-    q: `name:"${trimmed}"`,
+    q: parts.join(' '),
     orderBy: '-set.releaseDate',
     pageSize: 50,
   });
 
   const raw = res.data || {};
-  const cards = (raw.data || []).map(normalizeCard);
+  let cards = (raw.data || []).map(normalizeCard);
+
+  // "022/086" → filtramos por printedTotal del set.
+  if (parsed.printedTotal != null) {
+    const t = parsed.printedTotal;
+    cards = cards.filter(c => c.setPrintedTotal === t || c.setTotal === t);
+  }
+
   return {
-    total: raw.totalCount ?? cards.length,
+    total: parsed.printedTotal != null ? cards.length : (raw.totalCount ?? cards.length),
     cards,
   };
 }
+
+// Alias para no romper imports existentes (api/cards.js, index.astro).
+export const searchCardsByName = searchCards;
 

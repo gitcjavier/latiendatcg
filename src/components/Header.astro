@@ -20,39 +20,60 @@ const { query = "" } = Astro.props;
       </span>
     </a>
 
-    <!-- Search -->
-    <form
-      action="/"
-      method="get"
-      class="flex-1 min-w-0 max-w-2xl flex items-center bg-paper border border-ink-200 rounded-lg pl-3 sm:pl-4 pr-1 focus-within:border-brand/40 focus-within:ring-4 focus-within:ring-brand/8 transition"
-    >
-      <svg class="w-4 h-4 text-ink-400 mr-2 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
-        <circle cx="9" cy="9" r="6"></circle>
-        <path d="M15 15l-3.5-3.5"></path>
-      </svg>
-      <input
-        type="text"
-        name="q"
-        value={query}
-        placeholder="Buscar carta…"
-        autocomplete="off"
-        spellcheck="false"
-        aria-label="Buscar carta"
-        class="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium py-3 placeholder:text-ink-400"
-      />
-      <kbd class="hidden sm:inline-flex items-center text-[11px] font-mono text-ink-400 border border-ink-200 rounded px-1.5 py-0.5 mr-2">⌘ K</kbd>
-      <button
-        type="submit"
-        aria-label="Buscar"
-        class="shrink-0 bg-ink-900 text-paper text-xs font-bold tracking-wide px-3 sm:px-4 py-2 rounded-md hover:opacity-85 active:scale-95 transition"
+    <!-- Search + autocomplete -->
+    <div class="search-wrap relative flex-1 min-w-0 max-w-2xl">
+      <form
+        action="/"
+        method="get"
+        class="flex items-center bg-paper border border-ink-200 rounded-lg pl-3 sm:pl-4 pr-1 focus-within:border-brand/40 focus-within:ring-4 focus-within:ring-brand/8 transition"
       >
-        <span class="hidden sm:inline">BUSCAR</span>
-        <svg class="sm:hidden w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2">
+        <svg class="w-4 h-4 text-ink-400 mr-2 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
           <circle cx="9" cy="9" r="6"></circle>
           <path d="M15 15l-3.5-3.5"></path>
         </svg>
-      </button>
-    </form>
+        <input
+          id="search-input"
+          type="text"
+          name="q"
+          value={query}
+          placeholder="Buscar carta o código (ej. 022/086)"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Buscar carta"
+          aria-autocomplete="list"
+          aria-controls="autocomplete"
+          aria-expanded="false"
+          class="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium py-3 placeholder:text-ink-400"
+        />
+        <kbd class="hidden sm:inline-flex items-center text-[11px] font-mono text-ink-400 border border-ink-200 rounded px-1.5 py-0.5 mr-2">⌘ K</kbd>
+        <button
+          type="submit"
+          aria-label="Buscar"
+          class="shrink-0 bg-ink-900 text-paper text-xs font-bold tracking-wide px-3 sm:px-4 py-2 rounded-md hover:opacity-85 active:scale-95 transition"
+        >
+          <span class="hidden sm:inline">BUSCAR</span>
+          <svg class="sm:hidden w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="9" cy="9" r="6"></circle>
+            <path d="M15 15l-3.5-3.5"></path>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Dropdown de autocomplete -->
+      <div
+        id="autocomplete"
+        role="listbox"
+        class="hidden absolute top-full left-0 right-0 mt-2 bg-paper border border-ink-200 rounded-lg shadow-[0_16px_48px_-12px_rgba(11,11,11,0.18)] overflow-hidden max-h-[70vh] overflow-y-auto"
+      >
+        <div data-loading class="hidden py-3 text-center text-[11px] tracking-widest font-bold uppercase text-ink-400">
+          Buscando…
+        </div>
+        <div data-empty class="hidden p-5 text-center text-sm text-ink-400">
+          Sin resultados
+        </div>
+        <ul data-results class="divide-y divide-ink-200"></ul>
+      </div>
+    </div>
 
     <!-- Dolar -->
     <div id="dolar-pill" class="hidden md:flex items-baseline gap-2 text-xs shrink-0">
@@ -76,5 +97,176 @@ const { query = "" } = Astro.props;
         v.textContent = "$ " + new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(rate);
       }
     } catch (_) {}
+  })();
+
+  // ────────────────────────────────────────────────────────────────────
+  // Autocomplete del buscador
+  // ────────────────────────────────────────────────────────────────────
+  (() => {
+    const input = document.getElementById("search-input") as HTMLInputElement | null;
+    const dropdown = document.getElementById("autocomplete");
+    if (!input || !dropdown) return;
+
+    const form = input.closest("form")!;
+    const listEl = dropdown.querySelector("[data-results]") as HTMLUListElement;
+    const emptyEl = dropdown.querySelector("[data-empty]") as HTMLElement;
+    const loadingEl = dropdown.querySelector("[data-loading]") as HTMLElement;
+
+    const fmtUSD = (n: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+    const escapeHtml = (s: string) =>
+      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    let lastCards: any[] = [];
+    let activeIdx = -1;
+    let abortCtrl: AbortController | null = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function setExpanded(v: boolean) {
+      input!.setAttribute("aria-expanded", String(v));
+    }
+
+    function openDropdown() {
+      dropdown!.classList.remove("hidden");
+      setExpanded(true);
+    }
+
+    function closeDropdown() {
+      dropdown!.classList.add("hidden");
+      setExpanded(false);
+      activeIdx = -1;
+    }
+
+    function showLoading() {
+      emptyEl.classList.add("hidden");
+      loadingEl.classList.remove("hidden");
+      openDropdown();
+    }
+    function hideLoading() { loadingEl.classList.add("hidden"); }
+
+    function showEmpty() {
+      listEl.innerHTML = "";
+      lastCards = [];
+      activeIdx = -1;
+      hideLoading();
+      emptyEl.classList.remove("hidden");
+      openDropdown();
+    }
+
+    function renderRows(cards: any[]) {
+      lastCards = cards.slice(0, 6);
+      activeIdx = -1;
+      hideLoading();
+      emptyEl.classList.add("hidden");
+      listEl.innerHTML = lastCards.map((c, i) => {
+        const img = c.images?.small || "";
+        const total = c.setPrintedTotal || c.setTotal;
+        const codeStr = c.number ? (total ? `#${c.number}/${total}` : `#${c.number}`) : "";
+        const tcgp = typeof c.tcgpMarket === "number" && c.tcgpMarket > 0 ? fmtUSD(c.tcgpMarket) : "";
+        return `
+          <li role="option" data-idx="${i}" class="ac-row cursor-pointer flex items-center gap-3 px-3 py-2 hover:bg-ink-100 transition">
+            <div class="w-10 h-14 shrink-0 bg-ink-100 rounded overflow-hidden grid place-items-center">
+              ${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" class="w-full h-full object-contain"/>` : ""}
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-ink-900 truncate">${escapeHtml(c.name || "")}</p>
+              <p class="text-[11px] text-ink-400 truncate mt-0.5">
+                ${escapeHtml(c.set || "")}${codeStr ? ` · ${escapeHtml(codeStr)}` : ""}
+              </p>
+            </div>
+            ${tcgp ? `<p class="shrink-0 font-display text-sm font-bold tabular text-ink-900">${tcgp}</p>` : ""}
+          </li>
+        `;
+      }).join("");
+      openDropdown();
+    }
+
+    function setActive(idx: number) {
+      const rows = Array.from(listEl.querySelectorAll(".ac-row")) as HTMLElement[];
+      rows.forEach((r, i) => {
+        if (i === idx) r.classList.add("bg-brand/8");
+        else r.classList.remove("bg-brand/8");
+      });
+      activeIdx = idx;
+      if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "nearest" });
+    }
+
+    async function runSearch(q: string) {
+      if (abortCtrl) abortCtrl.abort();
+      abortCtrl = new AbortController();
+      showLoading();
+      try {
+        const r = await fetch("/api/cards?name=" + encodeURIComponent(q), { signal: abortCtrl.signal });
+        if (!r.ok) { showEmpty(); return; }
+        const data = await r.json();
+        const cards = (data?.cards || []) as any[];
+        if (!cards.length) showEmpty();
+        else renderRows(cards);
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        showEmpty();
+      }
+    }
+
+    input.addEventListener("input", () => {
+      const q = input.value.trim();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (q.length < 2) {
+        closeDropdown();
+        if (abortCtrl) abortCtrl.abort();
+        return;
+      }
+      debounceTimer = setTimeout(() => runSearch(q), 250);
+    });
+
+    // Re-abrir al focus si hay resultados previos.
+    input.addEventListener("focus", () => {
+      if (lastCards.length && input.value.trim().length >= 2) openDropdown();
+    });
+
+    // Click en una fila → abre modal directo (sin navegar).
+    listEl.addEventListener("click", (e) => {
+      const row = (e.target as HTMLElement).closest(".ac-row") as HTMLElement | null;
+      if (!row) return;
+      const idx = parseInt(row.dataset.idx || "-1", 10);
+      const card = lastCards[idx];
+      if (!card) return;
+      closeDropdown();
+      input.blur();
+      window.dispatchEvent(new CustomEvent("pkm:open-card", { detail: card }));
+    });
+
+    // Keyboard: flechas / Enter / Esc
+    input.addEventListener("keydown", (e) => {
+      const isOpen = !dropdown.classList.contains("hidden");
+      if (e.key === "ArrowDown" && isOpen && lastCards.length) {
+        e.preventDefault();
+        setActive(Math.min(activeIdx + 1, lastCards.length - 1));
+      } else if (e.key === "ArrowUp" && isOpen && lastCards.length) {
+        e.preventDefault();
+        setActive(Math.max(activeIdx - 1, 0));
+      } else if (e.key === "Enter") {
+        if (isOpen && activeIdx >= 0 && lastCards[activeIdx]) {
+          // Selección con teclado → abre modal y previene submit
+          e.preventDefault();
+          const card = lastCards[activeIdx];
+          closeDropdown();
+          input.blur();
+          window.dispatchEvent(new CustomEvent("pkm:open-card", { detail: card }));
+        }
+        // Sin item activo → deja submitear (SearchLoader se encarga del resto)
+      } else if (e.key === "Escape") {
+        closeDropdown();
+      }
+    });
+
+    // Click fuera del wrapper → cerrar
+    document.addEventListener("click", (e) => {
+      const wrap = (e.target as HTMLElement).closest(".search-wrap");
+      if (!wrap) closeDropdown();
+    });
+
+    // Cuando se envía el form (Enter sin item activo o botón), cerramos
+    form.addEventListener("submit", () => closeDropdown());
   })();
 </script>

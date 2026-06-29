@@ -602,4 +602,10 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
   });
+
+  // Trigger global: cualquier componente puede abrir el modal con un card
+  // arbitrario (ej. autocomplete del Header) emitiendo este evento.
+  window.addEventListener("pkm:open-card", (e: any) => {
+    if (e?.detail) openModal(e.detail);
+  });
 </script>

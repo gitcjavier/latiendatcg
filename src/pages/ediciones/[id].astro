@@ -4,7 +4,6 @@ import Header from "../../components/Header.astro";
 import Tabs from "../../components/Tabs.astro";
 import PageTitle from "../../components/PageTitle.astro";
 import CardItem from "../../components/CardItem.astro";
-import CardDetailModal from "../../components/CardDetailModal.astro";
 import { getCardsBySet, getStandardSets } from "../../lib/pokemontcg.js";
 
 export const prerender = false;
@@ -91,8 +90,6 @@ const accent = rest.join(" ");
       </>
     )}
   </main>
-
-  <CardDetailModal />
 
   <script>
     const btn = document.getElementById("loadmore-btn") as HTMLButtonElement | null;

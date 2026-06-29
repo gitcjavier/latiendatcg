@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import SearchLoader from "../components/SearchLoader.astro";
+import CardDetailModal from "../components/CardDetailModal.astro";
 
 interface Props {
   title?: string;
@@ -29,6 +30,7 @@ const {
   </head>
   <body class="min-h-screen flex flex-col bg-paper text-ink-900">
     <slot />
+    <CardDetailModal />
     <SearchLoader />
   </body>
 </html>

@@ -4,7 +4,6 @@ import Header from "../components/Header.astro";
 import Tabs from "../components/Tabs.astro";
 import PageTitle from "../components/PageTitle.astro";
 import CardItem from "../components/CardItem.astro";
-import CardDetailModal from "../components/CardDetailModal.astro";
 import { searchCardsByName } from "../lib/pokemontcg.js";
 
 export const prerender = false;
@@ -83,6 +82,4 @@ if (query && query.length >= 2) {
       </>
     )}
   </main>
-
-  <CardDetailModal />
 </Layout>
