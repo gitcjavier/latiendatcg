@@ -1,4 +1,5 @@
 ---
+import { LEGENDARIES } from "../lib/legendaries.js";
 interface Props {
   query?: string;
 }
@@ -80,6 +81,63 @@ const { query = "" } = Astro.props;
       <span class="text-ink-400 tracking-wider font-semibold">USD / CLP</span>
       <span class="font-display font-bold text-base tabular text-ink-900" id="dolar-value">—</span>
       <span class="text-success font-semibold tabular" id="dolar-delta"></span>
+    </div>
+
+    <!-- Pet picker -->
+    <div class="pet-picker-wrap relative shrink-0">
+      <button
+        id="pet-picker-btn"
+        type="button"
+        aria-label="Elegir mascota"
+        aria-haspopup="true"
+        aria-expanded="false"
+        class="grid place-items-center w-9 h-9 rounded-full border border-ink-200 hover:border-brand/40 hover:bg-brand/5 transition"
+      >
+        <!-- Placeholder pokeball (visible cuando no hay selección) -->
+        <span id="pet-empty" class="block w-4 h-4 rounded-full border-2 border-ink-900 relative">
+          <span class="absolute inset-x-0 top-1/2 h-[1.5px] bg-ink-900 -translate-y-1/2"></span>
+          <span class="absolute left-1/2 top-1/2 w-1 h-1 rounded-full bg-brand -translate-x-1/2 -translate-y-1/2"></span>
+        </span>
+        <!-- Sprite del pokemon elegido (visible cuando hay selección) -->
+        <img id="pet-current" src="" alt="" class="hidden w-7 h-7 object-contain image-rendering-pixelated" style="image-rendering: pixelated;" />
+      </button>
+
+      <div
+        id="pet-picker"
+        role="dialog"
+        aria-label="Elige tu mascota"
+        class="hidden absolute top-full right-0 mt-2 w-[260px] bg-paper border border-ink-200 rounded-lg shadow-[0_16px_48px_-12px_rgba(11,11,11,0.18)] p-3 z-50"
+      >
+        <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-ink-400 mb-2 px-1">
+          Tu mascota
+        </p>
+        <div class="grid grid-cols-4 gap-1.5">
+          {LEGENDARIES.map((p) => (
+            <button
+              type="button"
+              data-pet={p.name}
+              aria-label={p.alt}
+              title={p.alt}
+              class="pet-option grid place-items-center aspect-square rounded-md border border-transparent hover:border-brand/40 hover:bg-brand/5 transition"
+            >
+              <img
+                src={`/sprites/${p.name}.gif`}
+                alt={p.alt}
+                loading="lazy"
+                class="max-w-full max-h-full object-contain"
+                style="image-rendering: pixelated;"
+              />
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          data-pet=""
+          class="pet-option mt-2 w-full text-[11px] font-semibold tracking-wide text-ink-500 hover:text-ink-900 border border-ink-200 rounded-md py-1.5 hover:bg-ink-100 transition"
+        >
+          Quitar mascota
+        </button>
+      </div>
     </div>
   </div>
 </header>
@@ -268,5 +326,68 @@ const { query = "" } = Astro.props;
 
     // Cuando se envía el form (Enter sin item activo o botón), cerramos
     form.addEventListener("submit", () => closeDropdown());
+  })();
+
+  // ────────────────────────────────────────────────────────────────────
+  // Pet picker — selección persistida en localStorage
+  // ────────────────────────────────────────────────────────────────────
+  (() => {
+    const STORAGE_KEY = "pkm-pet";
+    const btn = document.getElementById("pet-picker-btn");
+    const picker = document.getElementById("pet-picker");
+    const empty = document.getElementById("pet-empty");
+    const current = document.getElementById("pet-current") as HTMLImageElement | null;
+    if (!btn || !picker || !empty || !current) return;
+
+    function applyToButton(name: string | null) {
+      if (name) {
+        current!.src = `/sprites/${name}.gif`;
+        current!.classList.remove("hidden");
+        empty!.classList.add("hidden");
+      } else {
+        current!.removeAttribute("src");
+        current!.classList.add("hidden");
+        empty!.classList.remove("hidden");
+      }
+    }
+
+    // Sincronizar estado inicial del botón con la selección persistida.
+    try {
+      applyToButton(localStorage.getItem(STORAGE_KEY));
+    } catch {}
+
+    function open() {
+      picker!.classList.remove("hidden");
+      btn!.setAttribute("aria-expanded", "true");
+    }
+    function close() {
+      picker!.classList.add("hidden");
+      btn!.setAttribute("aria-expanded", "false");
+    }
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      picker!.classList.contains("hidden") ? open() : close();
+    });
+
+    // Click en una opción → notifica a PetCursor y al botón
+    picker.addEventListener("click", (e) => {
+      const opt = (e.target as HTMLElement).closest(".pet-option") as HTMLElement | null;
+      if (!opt) return;
+      const name = opt.dataset.pet || null;
+      applyToButton(name);
+      window.dispatchEvent(new CustomEvent("pkm:pet-changed", { detail: { name } }));
+      close();
+    });
+
+    // Click fuera del wrapper → cerrar
+    document.addEventListener("click", (e) => {
+      if (!(e.target as HTMLElement).closest(".pet-picker-wrap")) close();
+    });
+
+    // Esc cierra
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") close();
+    });
   })();
 </script>

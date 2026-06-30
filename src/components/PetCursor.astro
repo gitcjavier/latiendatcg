@@ -1,0 +1,89 @@
+---
+// Sprite "mascota" que sigue al cursor del usuario.
+// Lee la selección persistida en localStorage (`pkm-pet`), escribe la posición
+// con transform para que sea barato (no re-layout) y mantiene
+// pointer-events: none para no interferir con la navegación.
+//
+// Se sincroniza vía el evento custom `pkm:pet-changed` que dispara el picker
+// del Header — así la selección se aplica al instante sin recargar.
+---
+
+<img
+  id="pet-cursor"
+  src=""
+  alt=""
+  aria-hidden="true"
+  class="pet-cursor"
+/>
+
+<style>
+  .pet-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+    pointer-events: none;
+    image-rendering: pixelated;
+    z-index: 9999;
+    /* Oculto hasta que el usuario elija una mascota */
+    display: none;
+    /* Suaviza el seguimiento al cursor sin sentir lag */
+    transition: transform 60ms linear;
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pet-cursor { transition: none; }
+  }
+</style>
+
+<script>
+  const STORAGE_KEY = "pkm-pet";
+  const pet = document.getElementById("pet-cursor") as HTMLImageElement | null;
+  if (pet) {
+    let x = 0;
+    let y = 0;
+
+    function apply(name: string | null) {
+      if (!pet) return;
+      if (name) {
+        pet.src = `/sprites/${name}.gif`;
+        pet.style.display = "block";
+      } else {
+        pet.removeAttribute("src");
+        pet.style.display = "none";
+      }
+    }
+
+    // Estado inicial desde localStorage
+    try {
+      apply(localStorage.getItem(STORAGE_KEY));
+    } catch {}
+
+    // Posicionar al lado del cursor (offset para no taparlo)
+    document.addEventListener("mousemove", (e) => {
+      x = e.clientX + 14;
+      y = e.clientY + 10;
+      pet!.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    });
+
+    // Ocultar cuando el cursor sale de la ventana
+    document.addEventListener("mouseleave", () => {
+      pet!.style.opacity = "0";
+    });
+    document.addEventListener("mouseenter", () => {
+      pet!.style.opacity = "1";
+    });
+
+    // El picker dispara este evento cuando el usuario cambia/quita su mascota
+    window.addEventListener("pkm:pet-changed", (e: any) => {
+      const name = e?.detail?.name ?? null;
+      try {
+        if (name) localStorage.setItem(STORAGE_KEY, name);
+        else localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+      apply(name);
+    });
+  }
+</script>
