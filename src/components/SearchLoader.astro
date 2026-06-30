@@ -1,12 +1,16 @@
 ---
 // Loader que aparece al hacer submit en el buscador.
-// 4 legendarios (GIFs animados de PokémonDB Black/White) caminan
+// 8 legendarios (GIFs animados de PokémonDB Black/White) caminan
 // horizontalmente sobre la página difuminada. Sin círculo de bosque.
 const WALKERS = [
   { name: "articuno", alt: "Articuno" },
   { name: "raikou",   alt: "Raikou" },
   { name: "moltres",  alt: "Moltres" },
   { name: "suicune",  alt: "Suicune" },
+  { name: "lugia",    alt: "Lugia" },
+  { name: "ho-oh",    alt: "Ho-Oh" },
+  { name: "mewtwo",   alt: "Mewtwo" },
+  { name: "rayquaza", alt: "Rayquaza" },
 ];
 ---
 
@@ -54,7 +58,7 @@ const WALKERS = [
   .search-loader { display: none; }
   .search-loader.is-visible { display: block; }
 
-  /* Parade horizontal — 4 GIFs animados que cruzan el área de izquierda a derecha.
+  /* Parade horizontal — 8 GIFs animados que cruzan el área de izquierda a derecha.
      Para que el sprite "mire hacia la derecha" aplicamos un sutil tilt 3D
      (rotateY hacia la derecha) que sugiere que avanza en esa dirección, más
      una leve rotación adelante (rotate -3deg) que da motion lean.
@@ -71,6 +75,9 @@ const WALKERS = [
     transform-origin: center bottom;
   }
   .walker-3 { height: 80px; }
+  .walker-5 { height: 82px; } /* Lugia */
+  .walker-6 { height: 82px; } /* Ho-Oh */
+  .walker-8 { height: 86px; } /* Rayquaza */
 
   .search-loader.is-visible .walker {
     animation-name: walk-across;
@@ -83,10 +90,19 @@ const WALKERS = [
   .walker-2 { bottom:  0px; }
   .walker-3 { bottom: 10px; }
   .walker-4 { bottom:  2px; }
-  .search-loader.is-visible .walker-1 { animation-delay:  0s; }
-  .search-loader.is-visible .walker-2 { animation-delay: -3.5s; }
-  .search-loader.is-visible .walker-3 { animation-delay: -7s; }
-  .search-loader.is-visible .walker-4 { animation-delay: -10.5s; }
+  .walker-5 { bottom:  6px; }
+  .walker-6 { bottom: 12px; }
+  .walker-7 { bottom:  4px; }
+  .walker-8 { bottom:  0px; }
+  /* 8 walkers escalonados sobre 14s = 1.75s entre cada uno */
+  .search-loader.is-visible .walker-1 { animation-delay:   0s;    }
+  .search-loader.is-visible .walker-2 { animation-delay:  -1.75s; }
+  .search-loader.is-visible .walker-3 { animation-delay:  -3.5s;  }
+  .search-loader.is-visible .walker-4 { animation-delay:  -5.25s; }
+  .search-loader.is-visible .walker-5 { animation-delay:  -7s;    }
+  .search-loader.is-visible .walker-6 { animation-delay:  -8.75s; }
+  .search-loader.is-visible .walker-7 { animation-delay: -10.5s;  }
+  .search-loader.is-visible .walker-8 { animation-delay: -12.25s; }
 
   @keyframes walk-across {
     from { left: -180px; }
@@ -113,10 +129,14 @@ const WALKERS = [
     .search-loader.is-visible .walker {
       animation: none;
     }
-    .walker-1 { left: 8%;  }
-    .walker-2 { left: 30%; }
-    .walker-3 { left: 54%; }
-    .walker-4 { left: 78%; }
+    .walker-1 { left:  4%; }
+    .walker-2 { left: 16%; }
+    .walker-3 { left: 28%; }
+    .walker-4 { left: 40%; }
+    .walker-5 { left: 52%; }
+    .walker-6 { left: 64%; }
+    .walker-7 { left: 76%; }
+    .walker-8 { left: 88%; }
     .search-dot { animation: none; opacity: 0.7; }
   }
 </style>
