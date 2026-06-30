@@ -9,9 +9,9 @@ const { query = "" } = Astro.props;
 <header
   class="sticky top-0 z-50 bg-paper/85 backdrop-blur-md border-b border-ink-200"
 >
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-0 sm:h-16 flex flex-col sm:grid sm:grid-cols-[1fr_minmax(0,640px)_1fr] sm:items-center gap-3 sm:gap-6">
     <!-- Brand -->
-    <a href="/" class="flex items-center gap-2 shrink-0">
+    <a href="/" class="flex items-center gap-2 shrink-0 sm:justify-self-start">
       <span class="w-7 h-7 rounded-full border-2 border-ink-900 relative grid place-items-center">
         <span class="absolute inset-x-0 top-1/2 h-[2px] bg-ink-900 -translate-y-1/2"></span>
         <span class="relative w-2 h-2 rounded-full bg-brand"></span>
@@ -22,7 +22,7 @@ const { query = "" } = Astro.props;
     </a>
 
     <!-- Search + autocomplete -->
-    <div class="search-wrap relative flex-1 min-w-0 max-w-2xl">
+    <div class="search-wrap relative min-w-0 w-full">
       <form
         action="/"
         method="get"
@@ -77,21 +77,24 @@ const { query = "" } = Astro.props;
     </div>
 
     <!-- Dolar -->
-    <div id="dolar-pill" class="hidden md:flex items-baseline gap-2 text-xs shrink-0">
+    <div id="dolar-pill" class="hidden md:flex items-baseline gap-2 text-xs shrink-0 sm:justify-self-end">
       <span class="text-ink-400 tracking-wider font-semibold">USD / CLP</span>
       <span class="font-display font-bold text-base tabular text-ink-900" id="dolar-value">—</span>
       <span class="text-success font-semibold tabular" id="dolar-delta"></span>
     </div>
 
-    <!-- Pet picker -->
-    <div class="pet-picker-wrap relative shrink-0">
+  </div>
+
+  <!-- Pet picker: pegado al borde derecho del viewport, fuera del max-w-7xl
+       para que en pantallas anchas (macbook) no quede flotando al centro. -->
+  <div class="pet-picker-wrap absolute top-3 sm:top-1/2 right-3 sm:right-5 sm:-translate-y-1/2 z-10">
       <button
         id="pet-picker-btn"
         type="button"
-        aria-label="Elegir mascota"
+        aria-label="Elegir Pokémon"
         aria-haspopup="true"
         aria-expanded="false"
-        class="grid place-items-center w-9 h-9 rounded-full border border-ink-200 hover:border-brand/40 hover:bg-brand/5 transition"
+        class="grid place-items-center w-11 h-11 rounded-full border border-ink-200 hover:border-brand/40 hover:bg-brand/5 transition"
       >
         <!-- Placeholder pokeball (visible cuando no hay selección) -->
         <span id="pet-empty" class="block w-4 h-4 rounded-full border-2 border-ink-900 relative">
@@ -99,17 +102,17 @@ const { query = "" } = Astro.props;
           <span class="absolute left-1/2 top-1/2 w-1 h-1 rounded-full bg-brand -translate-x-1/2 -translate-y-1/2"></span>
         </span>
         <!-- Sprite del pokemon elegido (visible cuando hay selección) -->
-        <img id="pet-current" src="" alt="" class="hidden w-7 h-7 object-contain image-rendering-pixelated" style="image-rendering: pixelated;" />
+        <img id="pet-current" src="" alt="" class="hidden w-9 h-9 object-contain" style="image-rendering: pixelated;" />
       </button>
 
       <div
         id="pet-picker"
         role="dialog"
-        aria-label="Elige tu mascota"
+        aria-label="Elige tu Pokémon"
         class="hidden absolute top-full right-0 mt-2 w-[260px] bg-paper border border-ink-200 rounded-lg shadow-[0_16px_48px_-12px_rgba(11,11,11,0.18)] p-3 z-50"
       >
         <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-ink-400 mb-2 px-1">
-          Tu mascota
+          Tu Pokémon
         </p>
         <div class="grid grid-cols-4 gap-1.5">
           {LEGENDARIES.map((p) => (
@@ -135,10 +138,9 @@ const { query = "" } = Astro.props;
           data-pet=""
           class="pet-option mt-2 w-full text-[11px] font-semibold tracking-wide text-ink-500 hover:text-ink-900 border border-ink-200 rounded-md py-1.5 hover:bg-ink-100 transition"
         >
-          Quitar mascota
+          Quitar Pokémon
         </button>
       </div>
-    </div>
   </div>
 </header>
 
