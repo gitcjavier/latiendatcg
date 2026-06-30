@@ -1,15 +1,13 @@
 ---
 // Loader que aparece al hacer submit en el buscador.
-// Sprites de Pokémon Gen 1 + fondo de bosque dentro de un círculo.
+// 4 legendarios (GIFs animados de PokémonDB Black/White) caminan
+// horizontalmente dentro de un círculo con fondo de bosque blureado.
 // El resto de la página se ve detrás con backdrop blur.
-const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
-const POKE_IDS = [
-  6,   // Charizard
-  25,  // Pikachu
-  150, // Mewtwo
-  94,  // Gengar
-  143, // Snorlax
-  133, // Eevee
+const WALKERS = [
+  { name: "articuno", alt: "Articuno" },
+  { name: "raikou",   alt: "Raikou" },
+  { name: "moltres",  alt: "Moltres" },
+  { name: "suicune",  alt: "Suicune" },
 ];
 ---
 
@@ -31,30 +29,29 @@ const POKE_IDS = [
       {/* Capa de oscurecido uniforme (no vignette) sobre el bosque */}
       <div class="absolute inset-0 bg-ink-900/25"></div>
 
-      {/* Contenido */}
-      <div class="relative h-full w-full flex flex-col items-center justify-center text-center p-8">
-        <div class="poke-stack relative w-[260px] h-[160px] mx-auto">
-          {POKE_IDS.map((id, i) => (
-            <img
-              class={`poke poke-${i + 1}`}
-              src={`${SPRITE_BASE}/${id}.png`}
-              alt=""
-              width="96"
-              height="96"
-              loading="eager"
-              decoding="async"
-            />
-          ))}
-        </div>
+      {/* Parade de legendarios cruzando el círculo de izquierda a derecha */}
+      <div class="legend-parade absolute inset-x-0 bottom-[34%] h-20 pointer-events-none overflow-hidden">
+        {WALKERS.map((w, i) => (
+          <img
+            class={`walker walker-${i + 1}`}
+            src={`/sprites/${w.name}.gif`}
+            alt={w.alt}
+            loading="eager"
+            decoding="async"
+          />
+        ))}
+      </div>
 
-        <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold mt-6 tracking-tight text-paper drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
+      {/* Contenido */}
+      <div class="relative h-full w-full flex flex-col items-center justify-end text-center pb-12 px-8 pt-8">
+        <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-paper drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
           Buscando carta
         </p>
         <p class="text-paper/90 text-sm mt-2 font-semibold drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)]">
           Consultando TCGMatch y TCGPlayer
         </p>
 
-        <div class="mt-5 inline-flex items-center gap-1.5">
+        <div class="mt-4 inline-flex items-center gap-1.5">
           <span class="search-dot"></span>
           <span class="search-dot"></span>
           <span class="search-dot"></span>
@@ -90,42 +87,45 @@ const POKE_IDS = [
     transform: scale(1.08); /* compensa el halo del blur en los bordes */
   }
 
-  .poke {
+  /* Parade horizontal — 4 GIFs animados (idle nativo) que cruzan el círculo.
+     PokémonDB Black/White: ~72-129px de ancho, ~68-98px de alto, transparentes. */
+  /* Parade horizontal — 4 GIFs animados (idle nativo) que cruzan el círculo.
+     PokémonDB Black/White: ~72-129px de ancho, ~68-98px de alto, transparentes.
+     Animamos `left` (no transform) porque el porcentaje se ancla al parent
+     `.legend-parade`, no a la propia imagen. */
+  .walker {
     position: absolute;
-    width: 88px;
-    height: 88px;
+    height: 64px;
+    width: auto;
     image-rendering: pixelated;
-    opacity: 0;
-    --rot: 0deg;
-    transform: translateY(-60px) rotate(var(--rot)) scale(0.7);
-    filter: drop-shadow(0 4px 8px rgba(11, 11, 11, 0.35));
+    filter: drop-shadow(0 4px 8px rgba(11, 11, 11, 0.45));
+    left: -140px;
+  }
+  /* Moltres es mucho más ancho (alas extendidas) — lo agrandamos un poco
+     para que pese visualmente como los otros. */
+  .walker-3 { height: 72px; }
+
+  .search-loader.is-visible .walker {
+    animation-name: walk-across;
+    animation-duration: 11s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
   }
 
-  .search-loader.is-visible .poke {
-    animation: poke-fall 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
+  /* Delays negativos reparten los 4 sprites en el ciclo de 11s
+     para que SIEMPRE haya 1-2 sprites visibles cruzando el círculo. */
+  .walker-1 { bottom:  6px; }
+  .walker-2 { bottom:  0px; }
+  .walker-3 { bottom:  8px; }
+  .walker-4 { bottom:  2px; }
+  .search-loader.is-visible .walker-1 { animation-delay:  0s; }
+  .search-loader.is-visible .walker-2 { animation-delay: -2.75s; }
+  .search-loader.is-visible .walker-3 { animation-delay: -5.5s; }
+  .search-loader.is-visible .walker-4 { animation-delay: -8.25s; }
 
-  /* Posiciones en abanico — bottom: 0 es el suelo de la pila */
-  .poke-1 { left:   0px; bottom: 12px; --rot: -16deg; animation-delay: 0s; }
-  .poke-2 { left:  44px; bottom:  4px; --rot:  -8deg; animation-delay: 0.12s; }
-  .poke-3 { left:  88px; bottom:  0px; --rot:   0deg; animation-delay: 0.24s; }
-  .poke-4 { left: 128px; bottom:  4px; --rot:   6deg; animation-delay: 0.36s; }
-  .poke-5 { left: 168px; bottom: 10px; --rot:  14deg; animation-delay: 0.48s; }
-  .poke-6 { left:  88px; bottom: 80px; --rot:   2deg; animation-delay: 0.62s; }
-
-  @keyframes poke-fall {
-    0% {
-      opacity: 0;
-      transform: translateY(-80px) rotate(var(--rot)) scale(0.6);
-    }
-    70% {
-      opacity: 1;
-      transform: translateY(8px) rotate(var(--rot)) scale(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) rotate(var(--rot)) scale(1);
-    }
+  @keyframes walk-across {
+    from { left: -140px; }
+    to   { left: calc(100% + 20px); }
   }
 
   .search-dot {
@@ -146,11 +146,14 @@ const POKE_IDS = [
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .search-loader.is-visible .poke {
+    .search-loader.is-visible .walker {
       animation: none;
-      opacity: 1;
-      transform: rotate(var(--rot));
     }
+    /* Distribuimos los 4 sprites en posiciones fijas para que se vean igual estáticos */
+    .walker-1 { left: 8%;  }
+    .walker-2 { left: 30%; }
+    .walker-3 { left: 54%; }
+    .walker-4 { left: 78%; }
     .search-dot { animation: none; opacity: 0.7; }
   }
 </style>
