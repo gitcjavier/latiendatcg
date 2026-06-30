@@ -14,22 +14,41 @@
   role="dialog"
   aria-labelledby="modal-name"
 >
+  {/* Backdrop con data-close: cualquier click aquí cierra el modal */}
   <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" data-close></div>
 
-  <div class="absolute inset-0 grid place-items-center p-4">
-    <div
-      class="relative bg-paper border border-brand/12 rounded-2xl shadow-[0_24px_64px_-12px_rgba(29,78,216,0.18),0_8px_24px_-8px_rgba(0,0,0,0.12)] w-full max-w-5xl max-h-[92vh] overflow-y-auto"
-    >
+  {/* Wrapper de centrado con pointer-events-none para no robarle los clicks al backdrop.
+      Solo el contenedor relativo + sus hijos (contenido y X flotante) reciben eventos. */}
+  <div class="absolute inset-0 grid place-items-center p-4 pointer-events-none">
+    <div class="relative w-full max-w-5xl pointer-events-auto">
+      {/* X flotante: afuera del modal, centrada vertical, a la derecha.
+          En pantallas <xl la dejamos dentro del modal porque no hay espacio lateral. */}
       <button
         type="button"
         data-close
         aria-label="Cerrar"
-        class="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-paper border border-ink-200 hover:bg-brand/5 hover:border-brand/25 transition grid place-items-center text-ink-500 hover:text-ink-900"
+        class="hidden xl:grid absolute top-1/2 -translate-y-1/2 left-full ml-4 z-10 w-10 h-10 rounded-full bg-paper border border-ink-200 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)] hover:bg-brand/5 hover:border-brand/25 transition place-items-center text-ink-500 hover:text-ink-900"
       >
-        <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M2 2l12 12M14 2L2 14"></path>
         </svg>
       </button>
+
+      <div
+        id="modal-content"
+        class="bg-paper border border-brand/12 rounded-2xl shadow-[0_24px_64px_-12px_rgba(29,78,216,0.18),0_8px_24px_-8px_rgba(0,0,0,0.12)] w-full max-h-[92vh] overflow-y-auto"
+      >
+        {/* X interna: visible solo cuando la X flotante NO cabe afuera (mobile + laptop chico) */}
+        <button
+          type="button"
+          data-close
+          aria-label="Cerrar"
+          class="xl:hidden absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-paper border border-ink-200 hover:bg-brand/5 hover:border-brand/25 transition grid place-items-center text-ink-500 hover:text-ink-900"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 2l12 12M14 2L2 14"></path>
+          </svg>
+        </button>
 
       {/* En mobile: header compacto con imagen+meta horizontal en la parte de arriba.
           En desktop (md+): vuelve a 2 columnas (imagen+meta | precios). */}
@@ -157,6 +176,7 @@
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>
