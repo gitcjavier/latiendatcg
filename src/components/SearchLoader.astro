@@ -20,23 +20,24 @@ const WALKERS = [
   {/* Backdrop: blur sobre la página, sin tapar con color sólido */}
   <div class="absolute inset-0 backdrop-blur-md bg-paper/55"></div>
 
-  {/* Contenido centrado */}
-  <div class="absolute inset-0 grid place-items-center px-6">
-    <div class="text-center w-full max-w-[560px]">
-      {/* Parade de legendarios cruzando horizontalmente */}
-      <div class="legend-parade relative w-full h-24 mx-auto pointer-events-none overflow-hidden">
-        {WALKERS.map((w, i) => (
-          <img
-            class={`walker walker-${i + 1}`}
-            src={`/sprites/${w.name}.gif`}
-            alt={w.alt}
-            loading="eager"
-            decoding="async"
-          />
-        ))}
-      </div>
+  {/* Parade horizontal — cruza el viewport completo, no limitada al texto.
+      Posicionado justo arriba del título para no solaparse. */}
+  <div class="legend-parade fixed inset-x-0 top-[calc(50%-200px)] h-24 pointer-events-none">
+    {WALKERS.map((w, i) => (
+      <img
+        class={`walker walker-${i + 1}`}
+        src={`/sprites/${w.name}.gif`}
+        alt={w.alt}
+        loading="eager"
+        decoding="async"
+      />
+    ))}
+  </div>
 
-      <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-ink-900 mt-4">
+  {/* Texto centrado */}
+  <div class="absolute inset-0 grid place-items-center px-6">
+    <div class="text-center">
+      <p id="search-loader-title" class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-ink-900">
         Buscando <span class="text-brand">carta</span>
       </p>
 
@@ -64,8 +65,7 @@ const WALKERS = [
     height: 72px;
     width: auto;
     image-rendering: pixelated;
-    filter: drop-shadow(0 6px 10px rgba(11, 11, 11, 0.35));
-    left: -140px;
+    left: -180px;
     /* Orientación hacia la derecha: tilt 3D + leve forward lean */
     transform: perspective(180px) rotateY(-22deg) rotate(-3deg);
     transform-origin: center bottom;
@@ -74,7 +74,7 @@ const WALKERS = [
 
   .search-loader.is-visible .walker {
     animation-name: walk-across;
-    animation-duration: 11s;
+    animation-duration: 14s;
     animation-timing-function: linear;
     animation-iteration-count: infinite;
   }
@@ -84,13 +84,13 @@ const WALKERS = [
   .walker-3 { bottom: 10px; }
   .walker-4 { bottom:  2px; }
   .search-loader.is-visible .walker-1 { animation-delay:  0s; }
-  .search-loader.is-visible .walker-2 { animation-delay: -2.75s; }
-  .search-loader.is-visible .walker-3 { animation-delay: -5.5s; }
-  .search-loader.is-visible .walker-4 { animation-delay: -8.25s; }
+  .search-loader.is-visible .walker-2 { animation-delay: -3.5s; }
+  .search-loader.is-visible .walker-3 { animation-delay: -7s; }
+  .search-loader.is-visible .walker-4 { animation-delay: -10.5s; }
 
   @keyframes walk-across {
-    from { left: -140px; }
-    to   { left: calc(100% + 20px); }
+    from { left: -180px; }
+    to   { left: calc(100vw + 40px); }
   }
 
   .search-dot {
