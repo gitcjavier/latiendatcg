@@ -12,12 +12,14 @@ const query = (Astro.url.searchParams.get("q") ?? "").trim();
 
 let cards: any[] = [];
 let total = 0;
+let suggestion: string | null = null;
 let err: string | null = null;
 if (query && query.length >= 2) {
   try {
     const data = await searchCardsByName(query);
     cards = data.cards ?? [];
     total = data.total ?? cards.length;
+    suggestion = data.suggestion ?? null;
   } catch (e: any) {
     err = e?.message ?? "Error al buscar cartas";
   }
@@ -64,8 +66,17 @@ if (query && query.length >= 2) {
         />
 
         {cards.length === 0 ? (
-          <div class="text-center py-24 text-ink-400">
-            Sin resultados para "{query}"
+          <div class="text-center py-24">
+            <p class="text-ink-400">Sin resultados para "{query}"</p>
+            {suggestion && (
+              <p class="mt-4 text-sm">
+                <span class="text-ink-500">¿Quisiste decir</span>{" "}
+                <a href={`/?q=${encodeURIComponent(suggestion)}`} class="text-brand font-semibold hover:underline">
+                  {suggestion}
+                </a>
+                <span class="text-ink-500">?</span>
+              </p>
+            )}
           </div>
         ) : (
           <>

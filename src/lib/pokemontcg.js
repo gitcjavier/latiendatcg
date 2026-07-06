@@ -232,23 +232,24 @@ export function parseSearchInput(raw) {
  * Búsqueda de cartas. Acepta nombre, código ("022"), código completo
  * ("022/086") o nombre + código. Construye el query Lucene de pokemontcg.io
  * según corresponda y filtra por printedTotal cuando viene en el input.
+ *
+ * Para nombres usamos prefix wildcard (`name:chariz*`) para tolerar nombres
+ * parciales. Si esa búsqueda no encuentra nada intentamos una sugerencia
+ * "¿quisiste decir X?" con Levenshtein (pokemontcg.io no soporta fuzzy Lucene).
+ *
+ * Devuelve: { total, cards, suggestion } — suggestion es null cuando hay hits
+ * o cuando ningún candidato quedó lo suficientemente cerca.
  */
 export async function searchCards(input) {
   const parsed = parseSearchInput(input);
   const parts = [];
-  if (parsed.name) parts.push(`name:"${parsed.name}"`);
+  if (parsed.name) parts.push(`name:${escapeLucene(parsed.name)}*`);
   if (typeof parsed.number === 'number') parts.push(`number:${parsed.number}`);
 
-  if (!parts.length) return { total: 0, cards: [] };
+  if (!parts.length) return { total: 0, cards: [], suggestion: null };
 
-  const res = await getWithRetry(`${API_BASE}/cards`, {
-    q: parts.join(' '),
-    orderBy: '-set.releaseDate',
-    pageSize: 50,
-  });
-
-  const raw = res.data || {};
-  let cards = (raw.data || []).map(normalizeCard);
+  const primary = await queryCards(parts.join(' '));
+  let cards = primary.cards;
 
   // "022/086" → filtramos por printedTotal del set.
   if (parsed.printedTotal != null) {
@@ -256,12 +257,107 @@ export async function searchCards(input) {
     cards = cards.filter(c => c.setPrintedTotal === t || c.setTotal === t);
   }
 
-  return {
-    total: parsed.printedTotal != null ? cards.length : (raw.totalCount ?? cards.length),
-    cards,
-  };
+  if (cards.length) {
+    return {
+      total: parsed.printedTotal != null ? cards.length : (primary.totalCount ?? cards.length),
+      cards,
+      suggestion: null,
+    };
+  }
+
+  // Fallback: intentamos sugerir un nombre cercano cuando había parte de nombre.
+  const suggestion = parsed.name && parsed.name.length >= 3
+    ? await findSuggestion(parsed.name)
+    : null;
+
+  return { total: 0, cards: [], suggestion };
 }
 
 // Alias para no romper imports existentes (api/cards.js, index.astro).
 export const searchCardsByName = searchCards;
+
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers de búsqueda
+// ────────────────────────────────────────────────────────────────────────────
+
+// Wrapper de la request al endpoint /cards. Devuelve la forma normalizada.
+async function queryCards(q, pageSize = 50) {
+  const res = await getWithRetry(`${API_BASE}/cards`, {
+    q,
+    orderBy: '-set.releaseDate',
+    pageSize,
+  });
+  const raw = res.data || {};
+  return {
+    cards: (raw.data || []).map(normalizeCard),
+    totalCount: raw.totalCount ?? 0,
+  };
+}
+
+// Escapa caracteres reservados de Lucene para que "charizard v" o "farfetch'd"
+// no rompan la query. También colapsa espacios internos (`chariz  ard` → `chariz ard`).
+function escapeLucene(s) {
+  return String(s)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/([+\-!(){}\[\]^"~*?:\\/])/g, '\\$1')
+    .replace(/&&|\|\|/g, m => '\\' + m);
+}
+
+// Busca una sugerencia "¿quisiste decir X?" cuando la búsqueda directa no
+// encontró nada. Estrategia: prefix corto (primeras 3 letras) → conseguir
+// candidatos → Levenshtein contra el input → devolver el más cercano ≤ 3.
+async function findSuggestion(input) {
+  const prefix = input.slice(0, 3);
+  let candidates;
+  try {
+    candidates = await queryCards(`name:${escapeLucene(prefix)}*`, 100);
+  } catch {
+    return null;
+  }
+
+  const target = input.toLowerCase();
+  const seen = new Set();
+  let best = null;
+  for (const c of candidates.cards) {
+    const name = (c.name || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const d = levenshtein(target, key);
+    if (d === 0) return null; // el usuario ya escribió el nombre exacto: no sugerimos
+    if (d <= 3 && (best == null || d < best.d)) {
+      best = { name, d };
+      if (d === 1) break;     // difícilmente vamos a mejorar una distancia 1
+    }
+  }
+  return best ? best.name : null;
+}
+
+// Distancia de edición clásica (Wagner-Fischer). Case-insensitive lo delega
+// el caller (aquí asumimos a/b ya en el mismo case).
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const m = a.length, n = b.length;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        curr[j - 1] + 1,        // inserción
+        prev[j] + 1,            // eliminación
+        prev[j - 1] + cost,     // sustitución
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
 
