@@ -10,12 +10,14 @@ const cache = new Map(); // term -> { data, ts }
  * Tiendas chilenas con preventas. Cada una se consulta por su API pública:
  *  - shopify: lee la colección "preventas" (products.json) y filtra por término
  *  - woo:     WooCommerce Store API con búsqueda server-side
+ *  - theway:  scraping HTML de la categoría 30° aniversario en Jumpseller
  */
 export const STORES = [
   { id: 'collectorcenter', name: 'Collector Center', type: 'shopify', domain: 'collectorcenter.cl', collection: 'preventas' },
   { id: 'updown',          name: 'Updown',           type: 'woo',     domain: 'www.updown.cl' },
   { id: 'huntercard',      name: 'HunterCard',       type: 'woo',     domain: 'www.huntercardtcg.com' },
   { id: 'eternia',         name: 'Tienda Eternia',   type: 'shopify', domain: 'tiendaeternia.com', collection: 'preventas' },
+  { id: 'theway',          name: 'The Way',          type: 'theway',  domain: 'www.theway.cl',     category: '/pokemon-tcg/30-aniversario-pokemon' },
 ];
 
 // Tipos de producto detectables por título. El orden importa: el primer match gana.
@@ -25,6 +27,8 @@ export const PRODUCT_TYPES = [
   { id: 'booster_box',label: 'Booster Box',        patterns: [/booster\s*box/i, /caja\s*de\s*sobres/i, /display/i] },
   { id: 'bundle',     label: 'Booster Bundle',     patterns: [/booster\s*bundle/i, /bundle/i] },
   { id: 'premium',    label: 'Premium Collection', patterns: [/premium\s*collection/i, /colecci[oó]n\s*premium/i, /collection\s*box/i] },
+  { id: 'poster',     label: 'Poster Collection',  patterns: [/poster\s*collection/i] },
+  { id: 'sticker',    label: 'Sticker Collection', patterns: [/(tech\s*)?sticker\s*collection/i, /colecci[oó]n\s*de\s*stickers/i] },
   { id: 'tin',        label: 'Tin / Lata',         patterns: [/\btin\b/i, /\blata\b/i] },
   { id: 'pack',       label: 'Sobre',              patterns: [/booster\s*pack/i, /\bsobre\b/i, /\bpack\b/i] },
 ];
@@ -64,7 +68,12 @@ export async function searchPreventas(opts = {}) {
   if (cached && Date.now() - cached.ts < TTL) return cached.data;
 
   const settled = await Promise.allSettled(
-    STORES.map(s => (s.type === 'shopify' ? shopifyPreventas(s, queryTerm) : wooSearch(s, queryTerm)))
+    STORES.map(s => {
+      if (s.type === 'shopify') return shopifyPreventas(s, queryTerm);
+      if (s.type === 'woo')     return wooSearch(s, queryTerm);
+      if (s.type === 'theway')  return thewayCategory(s, queryTerm);
+      return Promise.resolve([]);
+    }),
   );
 
   const enriched = STORES.map((s, i) => {
@@ -215,6 +224,94 @@ export async function searchAniversario30({ onlyInStock = false } = {}) {
     .filter(g => g.products.length > 0);
 
   return { total: all.length, groups };
+}
+
+// ── The Way (Jumpseller): scraping HTML de la categoría ──
+// Jumpseller no expone products.json públicamente en theway.cl, así que
+// parseamos el HTML del listado por categoría. Cada tarjeta es un
+// <div class="product-block" data-productid="XXX">…</div> con un shape estable.
+async function thewayCategory(store, term) {
+  const url = `https://${store.domain}${store.category}`;
+  const res = await axios.get(url, {
+    headers: {
+      'User-Agent': UA,
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'es-CL,es;q=0.9',
+    },
+    timeout: 12000,
+  });
+  const html = res.data || '';
+  const products = parseThewayHtml(html, store);
+  return products.filter(p => matchTerm(p.title, term));
+}
+
+// Extrae productos del HTML del listado. Usa regex sobre bloques delimitados
+// por `data-productid` — el HTML es plano y consistente.
+function parseThewayHtml(html, store) {
+  const out = [];
+  const blockRegex = /data-productid="(\d+)"([\s\S]*?)(?=data-productid="\d+"|$)/g;
+  let m;
+  while ((m = blockRegex.exec(html)) !== null) {
+    const productId = m[1];
+    const block = m[2];
+
+    const alt = block.match(/<img[^>]*alt="([^"]+)"/);
+    const title = alt ? decodeHtmlEntities(alt[1]) : null;
+    if (!title) continue;
+
+    const hrefMatch = block.match(/<a[^>]+href="(\/[^"#?]+)"/);
+    const path = hrefMatch ? hrefMatch[1] : null;
+    if (!path) continue;
+
+    const imgMatch = block.match(/<img[^>]+src="(https?:\/\/[^"]+)"/);
+    const image = imgMatch ? imgMatch[1] : '';
+
+    // Precio: primero sale-color/sale/regular. En ese orden aparece el vigente.
+    const priceMatch =
+      block.match(/<span[^>]+class="sale-color[^"]*"[^>]*>\$?([\d.,]+)/) ||
+      block.match(/<span[^>]+class="[^"]*\bsale\b[^"]*"[^>]*>\$?([\d.,]+)/) ||
+      block.match(/<span[^>]+class="[^"]*\bregular\b[^"]*"[^>]*>\$?([\d.,]+)/);
+    const price = priceMatch ? parseChileanPrice(priceMatch[1]) : null;
+    if (price == null) continue;
+
+    // Con stock si hay <form action="/cart/add/..."> con max > 0.
+    const maxMatch = block.match(/name="qty"[^>]*max="(\d+)"/);
+    const hasAddForm = /<form[^>]+action="\/cart\/add\/\d+"/.test(block);
+    const available = hasAddForm && (!maxMatch || parseInt(maxMatch[1], 10) > 0);
+
+    out.push({
+      storeId: store.id,
+      store: store.name,
+      title,
+      price,
+      available,
+      url: `https://${store.domain}${path}`,
+      image,
+    });
+  }
+  return out;
+}
+
+// "$20.490" en Chile usa punto como separador de miles → 20490
+function parseChileanPrice(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/[^\d]/g, '');
+  if (!digits) return null;
+  const n = parseInt(digits, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function decodeHtmlEntities(s) {
+  return String(s)
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#8211;/g, '–')
+    .replace(/&#8212;/g, '—')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&percnt;/g, '%');
 }
 
 // Precio Shopify viene como string "34990" o "34990.00" → entero CLP
