@@ -147,6 +147,76 @@ async function wooSearch(store, term) {
     .filter(x => x.price != null);
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 30° Aniversario Pokémon TCG
+// ────────────────────────────────────────────────────────────────────────────
+
+// Variantes con las que las tiendas chilenas suelen etiquetar los productos.
+// Los ejecutamos en paralelo y deduplicamos por (storeId, url).
+// Todos los términos incluyen "pokemon" para no traer Yu-Gi-Oh, Bastemon, etc.
+export const ANIVERSARIO_TERMS = [
+  'pokemon 30',
+  'pokemon aniversario',
+  'pokemon anniversary',
+  'pokémon 30',
+  'pokemon 30th',
+];
+
+// Filtro final: el título del producto debe mencionar Pokémon explícitamente
+// Y una marca de aniversario. Aunque la query ya lo pidió, algunas tiendas
+// devuelven productos parciales en su search. Sólo "30" a secas no basta
+// (traería rompecabezas de 300 piezas), así que exigimos "30" pegado a alguna
+// palabra tipo "years/años/anniversary/aniversario/th".
+const ANIVERSARIO_TITLE_REGEX = /pok[eé]mon/i;
+const ANIVERSARIO_MARK_REGEX = /(30\s*(th|years?|años?|anniv(ersary)?|aniversario)|30th)/i;
+
+/**
+ * Busca productos del 30° aniversario Pokémon TCG en todas las tiendas y los
+ * agrupa por categoría (ETB, Booster Box, Bundle…), cada grupo ordenado del
+ * más barato al más caro. Descarta productos sin tipo detectado (sleeves,
+ * playmats, dice, etc.) para no ensuciar la vista.
+ *
+ * @param {object} opts
+ * @param {boolean} [opts.onlyInStock=false]
+ * @returns {Promise<{ total: number, groups: Array<{ typeId, label, products: [] }> }>}
+ */
+export async function searchAniversario30({ onlyInStock = false } = {}) {
+  const runs = await Promise.allSettled(
+    ANIVERSARIO_TERMS.map(term =>
+      searchPreventas({ term, onlyInStock, sort: 'asc' }),
+    ),
+  );
+
+  const seen = new Set();
+  const all = [];
+  for (const r of runs) {
+    if (r.status !== 'fulfilled') continue;
+    for (const p of r.value.products) {
+      if (!p.type) continue;
+      // Filtro estricto: título debe mencionar Pokémon Y alguna marca de aniversario
+      const t = p.title || '';
+      if (!ANIVERSARIO_TITLE_REGEX.test(t)) continue;
+      if (!ANIVERSARIO_MARK_REGEX.test(t)) continue;
+      const key = `${p.storeId}::${p.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      all.push(p);
+    }
+  }
+
+  const groups = PRODUCT_TYPES
+    .map(pt => ({
+      typeId: pt.id,
+      label: pt.label,
+      products: all
+        .filter(p => p.type === pt.id)
+        .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
+    }))
+    .filter(g => g.products.length > 0);
+
+  return { total: all.length, groups };
+}
+
 // Precio Shopify viene como string "34990" o "34990.00" → entero CLP
 function parsePrice(s) {
   if (s == null) return null;

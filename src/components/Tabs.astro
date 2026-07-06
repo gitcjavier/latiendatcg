@@ -1,7 +1,12 @@
 ---
 interface Props {
-  active: "search" | "sets" | "productos";
-  counts?: { search?: number | string; sets?: number | string; productos?: number | string };
+  active: "search" | "sets" | "productos" | "aniversario";
+  counts?: {
+    search?: number | string;
+    sets?: number | string;
+    productos?: number | string;
+    aniversario?: number | string;
+  };
 }
 const { active, counts = {} } = Astro.props;
 
@@ -9,6 +14,7 @@ const tabs = [
   { id: "search", label: "BUSCAR", href: "/", count: counts.search },
   { id: "sets", label: "EDICIONES", href: "/ediciones", count: counts.sets },
   { id: "productos", label: "PRODUCTOS", href: "/productos", count: counts.productos },
+  { id: "aniversario", label: "30° ANIVERSARIO", href: "/aniversario", count: counts.aniversario },
 ] as const;
 ---
 
