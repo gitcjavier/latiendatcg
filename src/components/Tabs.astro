@@ -22,18 +22,24 @@ const tabs = [
   <div class="max-w-7xl mx-auto px-6 flex gap-8">
     {tabs.map((t) => {
       const isActive = active === t.id;
+      const isAniversario = t.id === "aniversario";
       return (
         <a
           href={t.href}
           class={[
             "relative py-4 text-xs font-bold tracking-[0.14em] transition",
-            isActive ? "text-ink-900" : "text-ink-400 hover:text-ink-700",
+            isAniversario
+              ? "px-3 -mx-1 bg-[#FFCB05] text-ink-900 hover:brightness-95"
+              : (isActive ? "text-ink-900" : "text-ink-400 hover:text-ink-700"),
           ].join(" ")}
         >
           <span class="inline-flex items-baseline gap-2">
             <span>{t.label}</span>
             {t.count !== undefined && (
-              <span class={["text-[11px] font-mono font-medium tabular", isActive ? "text-ink-400" : "text-ink-300"].join(" ")}>
+              <span class={[
+                "text-[11px] font-mono font-medium tabular",
+                isAniversario ? "text-ink-700" : (isActive ? "text-ink-400" : "text-ink-300"),
+              ].join(" ")}>
                 {typeof t.count === "number" ? String(t.count).padStart(2, "0") : t.count}
               </span>
             )}
