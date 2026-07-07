@@ -145,7 +145,36 @@ import { LEGENDARIES as WALKERS } from "../lib/legendaries.js";
       });
     });
 
-    window.addEventListener("pageshow", () => {
+    // Cuando aterrizamos en la nueva página, si hay resultados esperamos que
+    // las primeras imágenes de las cartas terminen de bajar antes de ocultar
+    // el loader — evita ver el layout vacío mientras el CDN sirve las cartas.
+    window.addEventListener("pageshow", async () => {
+      const cardImgs = Array.from(
+        document.querySelectorAll<HTMLImageElement>("[data-card-id] img"),
+      ).slice(0, 10);
+
+      if (!cardImgs.length) {
+        loader.classList.remove("is-visible");
+        return;
+      }
+
+      loader.classList.add("is-visible");
+
+      const pending = cardImgs
+        .filter((img) => !img.complete)
+        .map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              img.addEventListener("load", () => resolve(), { once: true });
+              img.addEventListener("error", () => resolve(), { once: true });
+            }),
+        );
+
+      await Promise.race([
+        Promise.all(pending),
+        new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+      ]);
+
       loader.classList.remove("is-visible");
     });
   }
