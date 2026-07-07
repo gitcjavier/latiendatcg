@@ -181,15 +181,25 @@ const ANIVERSARIO_MARK_REGEX = /(30\s*(th|years?|años?|anniv(ersary)?|aniversar
 
 /**
  * Busca productos del 30° aniversario Pokémon TCG en todas las tiendas y los
- * agrupa por categoría (ETB, Booster Box, Bundle…), cada grupo ordenado del
- * más barato al más caro. Descarta productos sin tipo detectado (sleeves,
- * playmats, dice, etc.) para no ensuciar la vista.
+ * agrupa por TIENDA, cada tienda con sus productos ordenados del más barato
+ * al más caro (para comparar precios entre tiendas en una misma vista).
+ *
+ * Descarta productos sin tipo detectado (sleeves, playmats, dice, etc.) para
+ * no ensuciar la vista.
  *
  * @param {object} opts
  * @param {boolean} [opts.onlyInStock=false]
- * @returns {Promise<{ total: number, groups: Array<{ typeId, label, products: [] }> }>}
+ * @param {string[]} [opts.storeIds]  Si se pasa (y no vacío), sólo se
+ *                                     devuelven storeGroups de esas tiendas.
+ *                                     `storesFound` siempre lista todas para
+ *                                     que el UI pueda ofrecerlas.
+ * @returns {Promise<{
+ *   total: number,
+ *   storesFound: Array<{ id, name, count }>,
+ *   storeGroups: Array<{ storeId, storeName, products: [] }>,
+ * }>}
  */
-export async function searchAniversario30({ onlyInStock = false } = {}) {
+export async function searchAniversario30({ onlyInStock = false, storeIds = null } = {}) {
   const runs = await Promise.allSettled(
     ANIVERSARIO_TERMS.map(term =>
       searchPreventas({ term, onlyInStock, sort: 'asc' }),
@@ -213,17 +223,36 @@ export async function searchAniversario30({ onlyInStock = false } = {}) {
     }
   }
 
-  const groups = PRODUCT_TYPES
-    .map(pt => ({
-      typeId: pt.id,
-      label: pt.label,
-      products: all
-        .filter(p => p.type === pt.id)
-        .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
-    }))
-    .filter(g => g.products.length > 0);
+  // Agrupamos por tienda. storesFound siempre lista TODAS las tiendas con
+  // productos (para que el UI pueda mostrar los chips), incluso si el filtro
+  // storeIds restringe qué grupos se devuelven.
+  const byStore = new Map();
+  for (const p of all) {
+    if (!byStore.has(p.storeId)) {
+      byStore.set(p.storeId, { storeId: p.storeId, storeName: p.store, products: [] });
+    }
+    byStore.get(p.storeId).products.push(p);
+  }
 
-  return { total: all.length, groups };
+  const storesFound = Array.from(byStore.values())
+    .map(g => ({ id: g.storeId, name: g.storeName, count: g.products.length }))
+    .sort((a, b) => b.count - a.count);
+
+  const selected = Array.isArray(storeIds) && storeIds.length > 0
+    ? new Set(storeIds)
+    : null;
+
+  const storeGroups = Array.from(byStore.values())
+    .filter(g => !selected || selected.has(g.storeId))
+    .map(g => ({
+      ...g,
+      products: [...g.products].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
+    }))
+    .sort((a, b) => b.products.length - a.products.length);
+
+  const total = storeGroups.reduce((acc, g) => acc + g.products.length, 0);
+
+  return { total, storesFound, storeGroups };
 }
 
 // ── The Way (Jumpseller): scraping HTML de la categoría ──

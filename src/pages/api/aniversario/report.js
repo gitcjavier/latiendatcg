@@ -30,8 +30,10 @@ export async function POST({ request }) {
   }
 
   const totalProducts = data.total ?? 0;
-  const shortlisted = (data.groups ?? []).map(g => ({
-    ...g,
+  // El reporte ahora agrupa por tienda. Se conserva el nombre TOP_N_PER_CATEGORY
+  // por compatibilidad; el semántico real es "top N por tienda".
+  const shortlisted = (data.storeGroups ?? []).map(g => ({
+    label: g.storeName,
     products: g.products.slice(0, TOP_N_PER_CATEGORY),
   }));
 

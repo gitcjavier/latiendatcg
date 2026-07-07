@@ -10,21 +10,49 @@ export const prerender = false;
 
 const sp = Astro.url.searchParams;
 const onlyInStock = sp.get("stock") === "1";
+const storesParam = (sp.get("stores") ?? "").trim();
+const selectedStoreIds = storesParam
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
 
-let data: any = { total: 0, groups: [] };
+let data: any = { total: 0, storesFound: [], storeGroups: [] };
 let err: string | null = null;
 try {
-  data = await searchAniversario30({ onlyInStock });
+  data = await searchAniversario30({
+    onlyInStock,
+    storeIds: selectedStoreIds.length ? selectedStoreIds : null,
+  });
 } catch (e: any) {
   err = e?.message ?? "Error al buscar productos";
 }
 
-const groups = data.groups ?? [];
+const storesFound = data.storesFound ?? [];
+const storeGroups = data.storeGroups ?? [];
 const total = data.total ?? 0;
+const activeStoreIds = new Set<string>(selectedStoreIds);
 const tabCount = total > 0 ? total : "00";
 
+// Preserva params actuales aplicando overrides. Null borra la clave.
+function buildHref(overrides: Record<string, string | null> = {}) {
+  const base: Record<string, string> = {};
+  if (onlyInStock) base.stock = "1";
+  if (selectedStoreIds.length) base.stores = selectedStoreIds.join(",");
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === null || v === "") delete base[k];
+    else base[k] = v;
+  }
+  const qs = new URLSearchParams(base).toString();
+  return qs ? `/aniversario?${qs}` : "/aniversario";
+}
 const hrefToggleStock = () =>
-  onlyInStock ? "/aniversario" : "/aniversario?stock=1";
+  buildHref({ stock: onlyInStock ? null : "1" });
+function hrefToggleStore(id: string) {
+  const next = new Set(activeStoreIds);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  return buildHref({ stores: next.size ? Array.from(next).join(",") : null });
+}
+const hrefClearStores = () => buildHref({ stores: null });
 ---
 
 <Layout title="30° Aniversario Pokémon — LaTiendaTCG">
@@ -37,9 +65,40 @@ const hrefToggleStock = () =>
       title="Aniversario"
       accent="30°"
       meta={total > 0
-        ? `${total} producto${total !== 1 ? "s" : ""} · ${groups.length} categoría${groups.length !== 1 ? "s" : ""}`
+        ? `${total} producto${total !== 1 ? "s" : ""} · ${storeGroups.length} tienda${storeGroups.length !== 1 ? "s" : ""}`
         : "Escaneando tiendas chilenas"}
     />
+
+    {/* Chips de tiendas — multi-select */}
+    {storesFound.length > 0 && (
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        <span class="text-[10px] font-bold tracking-[0.14em] uppercase text-ink-400 mr-1">Tiendas</span>
+        {storesFound.map((s: any) => {
+          const isActive = activeStoreIds.size === 0 || activeStoreIds.has(s.id);
+          return (
+            <a href={hrefToggleStore(s.id)}
+               class={[
+                 "inline-flex items-center gap-2 text-xs font-semibold rounded-full border pl-3 pr-1.5 py-1 transition",
+                 isActive
+                   ? "text-paper bg-ink-900 border-ink-900"
+                   : "text-ink-500 bg-paper border-ink-200 hover:border-ink-300",
+               ].join(" ")}>
+              {s.name}
+              <span class={[
+                "text-[11px] tabular font-bold rounded-full px-2 py-0.5",
+                isActive ? "text-ink-900 bg-paper" : "text-ink-400 bg-ink-100",
+              ].join(" ")}>{s.count}</span>
+            </a>
+          );
+        })}
+        {activeStoreIds.size > 0 && (
+          <a href={hrefClearStores()}
+             class="text-[11px] font-semibold text-ink-400 hover:text-ink-700 underline underline-offset-2 ml-1">
+            Todas
+          </a>
+        )}
+      </div>
+    )}
 
     {/* Toggle stock */}
     <div class="flex flex-wrap items-center gap-3 mb-8">
@@ -80,11 +139,11 @@ const hrefToggleStock = () =>
 
     {!err && total > 0 && (
       <div class="space-y-12">
-        {groups.map((g: any) => (
+        {storeGroups.map((g: any) => (
           <section>
             <div class="flex items-baseline justify-between mb-3 pb-2 border-b border-ink-200">
               <h2 class="font-display text-2xl font-bold tracking-tight">
-                {g.label}
+                {g.storeName}
               </h2>
               <p class="text-[11px] font-bold tracking-[0.14em] uppercase text-ink-400">
                 {g.products.length} producto{g.products.length !== 1 ? "s" : ""} · desde más barato
